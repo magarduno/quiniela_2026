@@ -329,7 +329,7 @@ if not st.session_state.user:
         if opcion=="Ingresar":
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
             if st.button("ACCEDER",use_container_width=True):
-                if u=="Miguel" and p=="2026mundial":
+                if u=="Miguel" and p=="MGmundial26":
                     st.session_state.user="Miguel"; st.rerun()
                 else:
                     conn=conectar_db(); row=conn.execute(
@@ -366,13 +366,13 @@ else:
         if st.button("🔄 Refrescar",use_container_width=True): st.rerun()
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
-        st.info("Los partidos se bloquean al publicar el resultado.")
+        st.info("Los partidos se bloquean antes del inicio del juego.")
 
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
     if st.session_state.user != "Miguel":
-        tabs=st.tabs(["📝 GRUPOS","🏆 ELIMINATORIAS","📊 POSICIONES","🌟 RANKING"])
+        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING"])
 
         # ── GRUPOS ────────────────────────────
         with tabs[0]:
@@ -431,9 +431,25 @@ else:
                         elif cerrado: st.markdown('<div class="sin-apuesta">Sin apuesta</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
             conn.close()
-
-        # ── ELIMINATORIAS (USUARIO) ────────────
+        
+        # ── POSICIONES ────────────────────────
         with tabs[1]:
+            st.header("Tablas de Posiciones por Grupo")
+            g_sel=st.selectbox("Grupo:",list(grupos.keys()))
+            st.table(get_tabla_grupo(g_sel))
+            st.divider()
+            st.subheader("🏅 Clasificados actuales")
+            cl=get_clasificados()
+            ca,cb,cc=st.columns(3)
+            ca.write("**1° de grupo:**")
+            for e in cl["primeros"]: ca.write(f"• {e}")
+            cb.write("**2° de grupo:**")
+            for e in cl["segundos"]: cb.write(f"• {e}")
+            cc.write("**Mejores 3°:**")
+            for e in cl["terceros"]: cc.write(f"• {e}")
+            
+            # ── ELIMINATORIAS (USUARIO) ────────────
+        with tabs[2]:
             conn=conectar_db()
             for ronda in RONDAS:
                 partidos=conn.execute(
@@ -502,22 +518,6 @@ else:
                             st.markdown('<div class="clasificado-badge">✅ Mi apuesta</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
             conn.close()
-
-        # ── POSICIONES ────────────────────────
-        with tabs[2]:
-            st.header("Tablas de Posiciones por Grupo")
-            g_sel=st.selectbox("Grupo:",list(grupos.keys()))
-            st.table(get_tabla_grupo(g_sel))
-            st.divider()
-            st.subheader("🏅 Clasificados actuales")
-            cl=get_clasificados()
-            ca,cb,cc=st.columns(3)
-            ca.write("**1° de grupo:**")
-            for e in cl["primeros"]: ca.write(f"• {e}")
-            cb.write("**2° de grupo:**")
-            for e in cl["segundos"]: cb.write(f"• {e}")
-            cc.write("**Mejores 3°:**")
-            for e in cl["terceros"]: cc.write(f"• {e}")
 
         # ── RANKING ───────────────────────────
         with tabs[3]:
