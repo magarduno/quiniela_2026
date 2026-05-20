@@ -646,7 +646,7 @@ if not st.session_state.user:
                         if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
                             st.error(f"'{nu.strip()}' ya existe.")
                         else:
-                            conn.execute("INSERT INTO usuarios VALUES(?,?,?,?)",
+                            conn.execute("INSERT INTO usuarios VALUES(?,?,?,?,?)",
                                 (nu.strip(),hash_pass(np),str(datetime.datetime.now()),0))
                             conn.commit(); st.success(f"¡Bienvenido, {nu.strip()}!"); time.sleep(1); st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
