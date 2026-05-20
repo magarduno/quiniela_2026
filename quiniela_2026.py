@@ -381,10 +381,10 @@ def avanzar_ganador(conn, match_id_origen, ganador, perdedor=None):
 
 def calcular_ranking_global():
     conn = conectar_db()
-    df_users    = pd.read_sql("SELECT username FROM usuarios WHERE username!='Miguel' AND pagado=1", conn)
-    df_ap_grupo = pd.read_sql("SELECT * FROM apuestas WHERE usuario!='Miguel'", conn)
+    df_users    = pd.read_sql("SELECT username FROM usuarios WHERE username!='Administrador' AND pagado=1", conn)
+    df_ap_grupo = pd.read_sql("SELECT * FROM apuestas WHERE usuario!='Administrador'", conn)
     df_reales   = pd.read_sql("SELECT * FROM resultados_reales", conn)
-    df_ap_elim  = pd.read_sql("SELECT * FROM elim_apuestas WHERE usuario!='Miguel'", conn)
+    df_ap_elim  = pd.read_sql("SELECT * FROM elim_apuestas WHERE usuario!='Administrador'", conn)
     df_res_elim = pd.read_sql("SELECT * FROM elim_resultados", conn)
     conn.close()
 
@@ -625,8 +625,8 @@ if not st.session_state.user:
         if opcion=="Ingresar":
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
             if st.button("ACCEDER",use_container_width=True):
-                if u=="Miguel" and p=="MGmundial2026":
-                    st.session_state.user="Miguel"; st.rerun()
+                if u=="Administrador" and p=="MGmundial2026":
+                    st.session_state.user="Administrador"; st.rerun()
                 else:
                     conn=conectar_db(); row=conn.execute(
                         "SELECT password,bloqueado FROM usuarios WHERE username=?",(u,)).fetchone(); conn.close()
@@ -639,7 +639,7 @@ if not st.session_state.user:
             if st.button("CREAR CUENTA",use_container_width=True):
                 if not nu.strip(): st.error("Nombre vacío.")
                 elif not np.strip(): st.error("Contraseña vacía.")
-                elif nu.strip().lower()=="miguel": st.error("Nombre reservado.")
+                elif nu.strip().lower()=="Administrador": st.error("Nombre de usuario no permitido.")
                 else:
                     conn=conectar_db()
                     try:
@@ -667,7 +667,7 @@ else:
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
-    if st.session_state.user != "Miguel":
+    if st.session_state.user != "Administrador":
         tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 2A FASE","🌟 RANKING","📋 APUESTAS"])
 
         # ── GRUPOS ────────────────────────────
@@ -834,7 +834,7 @@ else:
             conn_pago.close()
             if row_pago and row_pago[0]==0:
                 st.warning("⚠️ Tu inscripción aún no ha sido confirmada como pagada. "
-                           "Tus puntos no aparecerán en el ranking hasta que Miguel registre tu pago.")
+                           "Tus puntos no aparecerán en el ranking hasta que el Aministrador registre tu pago.")
             df_rank=calcular_ranking_global()
             if not df_rank.empty: df_rank.insert(0,"Pos",range(1,len(df_rank)+1))
             st.dataframe(df_rank,use_container_width=True,hide_index=True)
@@ -1002,7 +1002,7 @@ else:
         with a_tabs[4]:
             st.subheader("Gestión de Usuarios")
             df_us=pd.read_sql(
-                "SELECT username,fecha_registro,bloqueado,pagado FROM usuarios WHERE username!='Miguel' ORDER BY fecha_registro DESC",conn)
+                "SELECT username,fecha_registro,bloqueado,pagado FROM usuarios WHERE username!='Administrador' ORDER BY fecha_registro DESC",conn)
             if df_us.empty: st.info("No hay usuarios registrados.")
             else:
                 st.caption(f"Total: **{len(df_us)}** participantes")
