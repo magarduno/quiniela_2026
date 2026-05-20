@@ -620,7 +620,7 @@ st.markdown("""<div class="reglas-container"><div style="text-align:center">
 if not st.session_state.user:
     _,col_log,_=st.columns([1,1.5,1])
     with col_log:
-        st.markdown('<div style="background:white;padding:40px;border-radius:25px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">', unsafe_allow_html=True)
+        st.markdown('<div style="background:white;padding:20px;border-radius:25px;box-shadow:0 25px 20px -12px rgba(0,0,0,0.25)">', unsafe_allow_html=True)
         opcion=st.radio("Acceso al Sistema",["Ingresar","Registrarse"],horizontal=True)
         if opcion=="Ingresar":
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
