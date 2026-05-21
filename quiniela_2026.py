@@ -66,9 +66,15 @@ def inicializar_db():
     c = conn.cursor()
 
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
-        (username TEXT PRIMARY KEY, password TEXT, fecha_registro TEXT,
+        (username TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT DEFAULT '',
+         telefono TEXT DEFAULT '', fecha_registro TEXT,
          bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0)''')
-    for _col, _tipo in [("bloqueado","INTEGER DEFAULT 0"),("pagado","INTEGER DEFAULT 0")]:
+    for _col, _tipo in [
+        ("bloqueado",       "INTEGER DEFAULT 0"),
+        ("pagado",          "INTEGER DEFAULT 0"),
+        ("nombre_completo", "TEXT DEFAULT ''"),
+        ("telefono",        "TEXT DEFAULT ''"),
+    ]:
         try: c.execute(f"ALTER TABLE usuarios ADD COLUMN {_col} {_tipo}")
         except: pass
 
@@ -381,10 +387,10 @@ def avanzar_ganador(conn, match_id_origen, ganador, perdedor=None):
 
 def calcular_ranking_global():
     conn = conectar_db()
-    df_users    = pd.read_sql("SELECT username FROM usuarios WHERE username!='Administrador' AND pagado=1", conn)
-    df_ap_grupo = pd.read_sql("SELECT * FROM apuestas WHERE usuario!='Administrador'", conn)
+    df_users    = pd.read_sql("SELECT username FROM usuarios WHERE username!='ADMIN' AND pagado=1", conn)
+    df_ap_grupo = pd.read_sql("SELECT * FROM apuestas WHERE usuario!='ADMIN'", conn)
     df_reales   = pd.read_sql("SELECT * FROM resultados_reales", conn)
-    df_ap_elim  = pd.read_sql("SELECT * FROM elim_apuestas WHERE usuario!='Administrador'", conn)
+    df_ap_elim  = pd.read_sql("SELECT * FROM elim_apuestas WHERE usuario!='ADMIN'", conn)
     df_res_elim = pd.read_sql("SELECT * FROM elim_resultados", conn)
     conn.close()
 
@@ -605,7 +611,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 if 'user' not in st.session_state: st.session_state.user=None
 
 st.markdown('<h1 class="main-title">🏆 QUINIELA MUNDIAL 2026</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Sistema de Quinielas — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Sistema de Quiniela — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
 st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
@@ -625,8 +631,8 @@ if not st.session_state.user:
         if opcion=="Ingresar":
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
             if st.button("ACCEDER",use_container_width=True):
-                if u=="Administrador" and p=="MGmundial2026":
-                    st.session_state.user="Administrador"; st.rerun()
+                if u=="ADMIN" and p=="MG2026mundial":
+                    st.session_state.user="ADMIN"; st.rerun()
                 else:
                     conn=conectar_db(); row=conn.execute(
                         "SELECT password,bloqueado FROM usuarios WHERE username=?",(u,)).fetchone(); conn.close()
@@ -635,20 +641,45 @@ if not st.session_state.user:
                         else: st.session_state.user=u; st.rerun()
                     else: st.error("Credenciales inválidas")
         else:
-            nu=st.text_input("Nuevo Usuario"); np=st.text_input("Nueva Contraseña",type="password")
-            if st.button("CREAR CUENTA",use_container_width=True):
-                if not nu.strip(): st.error("Nombre vacío.")
-                elif not np.strip(): st.error("Contraseña vacía.")
-                elif nu.strip().lower()=="Administrador": st.error("Nombre de usuario no permitido.")
+            st.markdown("**Datos de acceso**")
+            nu = st.text_input("Usuario (para mostrar e iniciar sesión) *")
+            np = st.text_input("Contraseña (mínimo 8 caracteres) *", type="password")
+            np2 = st.text_input("Confirmar contraseña *", type="password")
+            st.markdown("**Datos personales**")
+            nombre_completo = st.text_input("Nombre completo *")
+            telefono = st.text_input("Número de teléfono *")
+
+            if st.button("CREAR CUENTA", use_container_width=True):
+                # Validaciones
+                if not nu.strip():
+                    st.error("⚠️ El nombre de usuario es obligatorio.")
+                elif nu.strip().lower() in ["ADMIN"]:
+                    st.error("⚠️ Ese nombre de usuario está reservado.")
+                elif not np:
+                    st.error("⚠️ La contraseña es obligatoria.")
+                elif len(np) < 8:
+                    st.error("⚠️ La contraseña debe tener al menos 8 caracteres.")
+                elif np != np2:
+                    st.error("⚠️ Las contraseñas no coinciden.")
+                elif not nombre_completo.strip():
+                    st.error("⚠️ El nombre completo es obligatorio.")
+                elif not telefono.strip():
+                    st.error("⚠️ El número de teléfono es obligatorio.")
+                elif not telefono.strip().replace("+","").replace(" ","").replace("-","").isdigit():
+                    st.error("⚠️ El teléfono solo debe contener números.")
                 else:
                     conn=conectar_db()
                     try:
                         if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
-                            st.error(f"'{nu.strip()}' ya existe.")
+                            st.error(f"⚠️ El usuario '{nu.strip()}' ya existe. Elige otro nombre.")
                         else:
-                            conn.execute("INSERT INTO usuarios VALUES(?,?,?,?,?)",
-                                (nu.strip(),hash_pass(np),str(datetime.datetime.now()),0))
-                            conn.commit(); st.success(f"¡Bienvenido, {nu.strip()}!"); time.sleep(1); st.rerun()
+                            conn.execute(
+                                "INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado) VALUES(?,?,?,?,?,0,0)",
+                                (nu.strip(), hash_pass(np), nombre_completo.strip(),
+                                 telefono.strip(), str(datetime.datetime.now())))
+                            conn.commit()
+                            st.success(f"✅ ¡Registro exitoso! Bienvenido, ahora puedes iniciar sesión.")
+                            time.sleep(5); st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
                     finally: conn.close()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -662,13 +693,13 @@ else:
         if st.button("🔄 Refrescar",use_container_width=True): st.rerun()
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
-        st.info("Los partidos se bloquean una hora antes de comenzar el juego.")
+        st.info("Los partidos se bloquean una hora antes del inicio del juego.")
 
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
-    if st.session_state.user != "Administrador":
-        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 2A FASE","🌟 RANKING","📋 APUESTAS"])
+    if st.session_state.user != "ADMIN":
+        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 MIS APUESTAS"])
 
         # ── GRUPOS ────────────────────────────
         with tabs[0]:
@@ -727,7 +758,7 @@ else:
                         elif cerrado: st.markdown('<div class="sin-apuesta">Sin apuesta</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
             conn.close()
-       
+
         # ── POSICIONES ────────────────────────
         with tabs[1]:
             st.header("Tablas de Posiciones por Grupo")
@@ -743,8 +774,8 @@ else:
             for e in cl["segundos"]: cb.write(f"• {e}")
             cc.write("**Mejores 3°:**")
             for e in cl["terceros"]: cc.write(f"• {e}")
-
- # ── ELIMINATORIAS (USUARIO) ────────────
+            
+             # ── ELIMINATORIAS (USUARIO) ────────────
         with tabs[2]:
             conn_el=conectar_db()
             st.markdown("### 🏆 Bracket FIFA 2026")
@@ -834,14 +865,14 @@ else:
             conn_pago.close()
             if row_pago and row_pago[0]==0:
                 st.warning("⚠️ Tu inscripción aún no ha sido confirmada como pagada. "
-                           "Tus puntos no aparecerán en el ranking hasta que el Aministrador registre tu pago.")
+                           "Tus puntos no aparecerán en el ranking hasta que el administrador confirme tu pago.")
             df_rank=calcular_ranking_global()
             if not df_rank.empty: df_rank.insert(0,"Pos",range(1,len(df_rank)+1))
             st.dataframe(df_rank,use_container_width=True,hide_index=True)
 
         # ── MIS APUESTAS ──────────────────────
         with tabs[4]:
-            st.header("📋 Apuestas")
+            st.header("📋 Pronósticos")
             conn_ap=conectar_db()
             tab_mg, tab_me = st.tabs(["⚽ Fase de Grupos","🏆 Eliminatorias"])
             with tab_mg:
@@ -1002,12 +1033,15 @@ else:
         with a_tabs[4]:
             st.subheader("Gestión de Usuarios")
             df_us=pd.read_sql(
-                "SELECT username,fecha_registro,bloqueado,pagado FROM usuarios WHERE username!='Administrador' ORDER BY fecha_registro DESC",conn)
+                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
             if df_us.empty: st.info("No hay usuarios registrados.")
             else:
                 st.caption(f"Total: **{len(df_us)}** participantes")
                 for _,row in df_us.iterrows():
-                    uname=row['username']; bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0))
+                    uname=row['username']
+                    nombre_c=row.get('nombre_completo','') or ''
+                    telefono_c=row.get('telefono','') or ''
+                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0))
                     fecha=row['fecha_registro'][:10] if row['fecha_registro'] else "—"
                     n_ap=conn.execute("SELECT COUNT(*) FROM apuestas WHERE usuario=?",(uname,)).fetchone()[0]
                     n_el=conn.execute("SELECT COUNT(*) FROM elim_apuestas WHERE usuario=?",(uname,)).fetchone()[0]
@@ -1016,9 +1050,11 @@ else:
                         estado_acc  = "🔴 Bloqueado" if bloq   else "🟢 Activo"
                         estado_pago = "💰 Pagado"    if pagado else "⏳ Sin pagar"
                         st.markdown(
-                            f"**{uname}** — {estado_acc} — {estado_pago} "
-                            f'<span style="color:#94a3b8;font-size:.8rem">'
-                            f"| {fecha} | Grupos:{n_ap} | Elim:{n_el}</span>",
+                            f"**{uname}** — {estado_acc} — {estado_pago}<br>"
+                            f'<span style="color:#475569;font-size:.85rem">'
+                            f"👤 {nombre_c} &nbsp;|&nbsp; 📱 {telefono_c}</span><br>"
+                            f'<span style="color:#94a3b8;font-size:.75rem">'
+                            f"Registro: {fecha} | Grupos:{n_ap} | Elim:{n_el}</span>",
                             unsafe_allow_html=True)
                     with cb2:
                         if st.button("🔓 Desbloquear" if bloq else "🚫 Bloquear",
