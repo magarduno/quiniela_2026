@@ -694,7 +694,7 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes del inicio del juego.")
-        st.info("Tarjeta Banco Azteca: 4027665885774530 icon="ℹ️" ")
+        st.info("💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
         
     # ══════════════════════════════════════════
     # USUARIO NORMAL
