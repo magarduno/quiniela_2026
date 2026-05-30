@@ -126,6 +126,11 @@ def inicializar_db():
     c.execute('''CREATE TABLE IF NOT EXISTS elim_resultados (
         partido_id TEXT PRIMARY KEY, ganador TEXT, penales INTEGER DEFAULT 0)''')
 
+    # Migración: sincronizar num_partido con partido_id en registros existentes
+    try:
+        c.execute("UPDATE elim_partidos SET num_partido=CAST(partido_id AS INTEGER) WHERE num_partido IS NULL OR num_partido=0")
+    except: pass
+
     conn.commit()
     conn.close()
 
@@ -171,66 +176,67 @@ grupos = {
     "L":["Inglaterra","Ghana","Croacia","Panamá"],
 }
 
-RONDAS = ["32avos","Octavos","Cuartos","Semifinales","Tercer Lugar","Final"]
-
-RONDA_LABEL = {
-    "32avos":      "🔵 32avos de Final — 16 partidos",
-    "Octavos":     "🟣 Octavos de Final — 8 partidos",
-    "Cuartos":     "🟠 Cuartos de Final — 4 partidos",
-    "Semifinales": "🔴 Semifinales — 2 partidos",
-    "Tercer Lugar":"🥉 Tercer Lugar — 1 partido",
-    "Final":       "🏆 Gran Final",
-}
-
-N_PARTIDOS = {"32avos":16,"Octavos":8,"Cuartos":4,"Semifinales":2,"Tercer Lugar":1,"Final":1}
-
-
-# ─────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════
 # BRACKET OFICIAL FIFA 2026
-# Cada entrada: match_id -> descripción del partido
-# LLAVE: (match_id_origen) -> (match_id_destino, slot)  slot=1 o 2
-# ─────────────────────────────────────────────────────────────────────
+# Leído directamente del bracket oficial (imágenes)
+#
+# LADO IZQUIERDO (arriba → abajo):
+#   P74 + P77 → P89   |   P73 + P75 → P90
+#   P89 + P90 → P97
+#   P83 + P84 → P93   |   P81 + P82 → P94
+#   P93 + P94 → P98
+#   P97 + P98 → P101 (Semi izq)
+#
+# LADO DERECHO (arriba → abajo):
+#   P76 + P78 → P91   |   P79 + P80 → P92
+#   P91 + P92 → P99
+#   P86 + P88 → P95   |   P85 + P87 → P96
+#   P95 + P96 → P100
+#   P99 + P100 → P102 (Semi der)
+#
+# FINAL:     P101 vs P102 → P104
+# 3ER LUGAR: RU101 vs RU102 → P103
+# ═══════════════════════════════════════════════════════════════════════
 
-# Descripción de cada partido (para mostrar al usuario antes de que se llenen)
 MATCH_DESC = {
-    # Round of 32 (M73-M88)
+    # 32avos de Final
     73:  "2°A vs 2°B",
-    74:  "1°E vs Mejor 3° (A/B/C/D/F)",
+    74:  "1°E vs Mejor 3°(ABCDF)",
     75:  "1°F vs 2°C",
     76:  "1°C vs 2°F",
-    77:  "1°I vs Mejor 3° (C/D/F/G/H)",
+    77:  "1°I vs Mejor 3°(CDFGH)",
     78:  "2°E vs 2°I",
-    79:  "1°A vs Mejor 3° (C/E/F/H/I)",
-    80:  "1°L vs Mejor 3° (E/H/I/J/K)",
-    81:  "1°D vs Mejor 3° (B/E/F/I/J)",
-    82:  "1°G vs Mejor 3° (A/E/H/I/J)",
+    79:  "1°A vs Mejor 3°(CEFHI)",
+    80:  "1°L vs Mejor 3°(EHIJK)",
+    81:  "1°D vs Mejor 3°(BEFIJ)",
+    82:  "1°G vs Mejor 3°(AEHIJ)",
     83:  "2°K vs 2°L",
     84:  "1°H vs 2°J",
-    85:  "1°B vs Mejor 3° (E/F/G/I/J)",
+    85:  "1°B vs Mejor 3°(EFGIJ)",
     86:  "1°J vs 2°H",
-    87:  "1°K vs Mejor 3° (D/E/I/J/L)",
+    87:  "1°K vs Mejor 3°(DEIJL)",
     88:  "2°D vs 2°G",
-    # Round of 16 (M89-M96)
-    89:  "Ganador M73 vs Ganador M74",
-    90:  "Ganador M75 vs Ganador M76",
-    91:  "Ganador M77 vs Ganador M78",
-    92:  "Ganador M79 vs Ganador M80",
-    93:  "Ganador M81 vs Ganador M82",
-    94:  "Ganador M83 vs Ganador M84",
-    95:  "Ganador M85 vs Ganador M86",
-    96:  "Ganador M87 vs Ganador M88",
-    # Quarterfinals (M97-M100)
-    97:  "Ganador M89 vs Ganador M90",
-    98:  "Ganador M91 vs Ganador M92",
-    99:  "Ganador M93 vs Ganador M94",
-    100: "Ganador M95 vs Ganador M96",
-    # Semifinals (M101-M102)
-    101: "Ganador M97 vs Ganador M98",
-    102: "Ganador M99 vs Ganador M100",
-    # 3rd place (M103)
-    103: "Perdedor M101 vs Perdedor M102",
-    # Final (M104)
-    104: "Ganador M101 vs Ganador M102",
+    # Octavos de Final
+    89:  "W74 vs W77",
+    90:  "W73 vs W75",
+    91:  "W76 vs W78",
+    92:  "W79 vs W80",
+    93:  "W83 vs W84",
+    94:  "W81 vs W82",
+    95:  "W86 vs W88",
+    96:  "W85 vs W87",
+    # Cuartos de Final
+    97:  "W89 vs W90",
+    98:  "W93 vs W94",
+    99:  "W91 vs W92",
+    100: "W95 vs W96",
+    # Semifinales
+    101: "W97 vs W98",
+    102: "W99 vs W100",
+    # 3er Lugar
+    103: "RU101 vs RU102",
+    # Final
+    104: "W101 vs W102",
 }
 
 RONDA_POR_MATCH = {
@@ -242,52 +248,55 @@ RONDA_POR_MATCH = {
     104: "Final",
 }
 
+N_PARTIDOS = {"32avos":16,"Octavos":8,"Cuartos":4,"Semifinales":2,"Tercer Lugar":1,"Final":1}
+
 MATCHES_POR_RONDA = {
-    "32avos":      list(range(73, 89)),
-    "Octavos":     list(range(89, 97)),
-    "Cuartos":     list(range(97, 101)),
-    "Semifinales": [101, 102],
-    "Tercer Lugar":[103],
-    "Final":       [104],
+    "32avos":       list(range(73, 89)),
+    "Octavos":      list(range(89, 97)),
+    "Cuartos":      list(range(97, 101)),
+    "Semifinales":  [101, 102],
+    "Tercer Lugar": [103],
+    "Final":        [104],
 }
 
-# Árbol de avance: ganador de match X → va al match Y como slot S (1=local, 2=visitante)
 LLAVE_AVANCE = {
-    # Round of 32 → Round of 16
-    73:  (89,  1),
-    74:  (89,  2),
-    75:  (90,  1),
-    76:  (90,  2),
-    77:  (91,  1),
-    78:  (91,  2),
-    79:  (92,  1),
-    80:  (92,  2),
-    81:  (93,  1),
-    82:  (93,  2),
-    83:  (94,  1),
-    84:  (94,  2),
-    85:  (95,  1),
-    86:  (95,  2),
-    87:  (96,  1),
-    88:  (96,  2),
-    # Round of 16 → Quarterfinals
-    89:  (97,  1),
-    90:  (97,  2),
-    91:  (98,  1),
-    92:  (98,  2),
-    93:  (99,  1),
-    94:  (99,  2),
-    95:  (100, 1),
-    96:  (100, 2),
-    # Quarterfinals → Semifinals
-    97:  (101, 1),
-    98:  (101, 2),
-    99:  (102, 1),
-    100: (102, 2),
-    # Semifinals → Final (ganadores) y 3er lugar (perdedores)
+    # 32avos → Octavos (lado izquierdo superior)
+    74:  (89,  1),  # W74 → P89 slot1
+    77:  (89,  2),  # W77 → P89 slot2
+    73:  (90,  1),  # W73 → P90 slot1
+    75:  (90,  2),  # W75 → P90 slot2
+    # 32avos → Octavos (lado izquierdo inferior)
+    83:  (93,  1),  # W83 → P93 slot1
+    84:  (93,  2),  # W84 → P93 slot2
+    81:  (94,  1),  # W81 → P94 slot1
+    82:  (94,  2),  # W82 → P94 slot2
+    # 32avos → Octavos (lado derecho superior)
+    76:  (91,  1),  # W76 → P91 slot1
+    78:  (91,  2),  # W78 → P91 slot2
+    79:  (92,  1),  # W79 → P92 slot1
+    80:  (92,  2),  # W80 → P92 slot2
+    # 32avos → Octavos (lado derecho inferior)
+    86:  (95,  1),  # W86 → P95 slot1
+    88:  (95,  2),  # W88 → P95 slot2
+    85:  (96,  1),  # W85 → P96 slot1
+    87:  (96,  2),  # W87 → P96 slot2
+    # Octavos → Cuartos
+    89:  (97,  1),  # W89 → P97 slot1
+    90:  (97,  2),  # W90 → P97 slot2
+    93:  (98,  1),  # W93 → P98 slot1
+    94:  (98,  2),  # W94 → P98 slot2
+    91:  (99,  1),  # W91 → P99 slot1
+    92:  (99,  2),  # W92 → P99 slot2
+    95:  (100, 1),  # W95 → P100 slot1
+    96:  (100, 2),  # W96 → P100 slot2
+    # Cuartos → Semifinales
+    97:  (101, 1),  # W97 → P101 slot1
+    98:  (101, 2),  # W98 → P101 slot2
+    99:  (102, 1),  # W99 → P102 slot1
+    100: (102, 2),  # W100 → P102 slot2
+    # Semifinales → Final
     101: (104, 1),
     102: (104, 2),
-    # 3er lugar: se llena con perdedores de semis (lógica aparte)
 }
 
 # Perdedores de semis → 3er lugar
@@ -299,12 +308,12 @@ LLAVE_PERDEDOR = {
 RONDAS = ["32avos", "Octavos", "Cuartos", "Semifinales", "Tercer Lugar", "Final"]
 
 RONDA_LABEL = {
-    "32avos":      "🔵 Round of 32 — Partidos 73 al 88",
-    "Octavos":     "🟣 Round of 16 — Partidos 89 al 96",
-    "Cuartos":     "🟠 Cuartos de Final — Partidos 97 al 100",
-    "Semifinales": "🔴 Semifinales — Partidos 101 y 102",
-    "Tercer Lugar":"🥉 Tercer Lugar — Partido 103",
-    "Final":       "🏆 Gran Final — Partido 104",
+    "32avos":       "🔵 Round of 32 — P73 al P88",
+    "Octavos":      "🟣 Round of 16 — P89 al P96",
+    "Cuartos":      "🟠 Cuartos de Final — P97 al P100",
+    "Semifinales":  "🔴 Semifinales — P101 y P102",
+    "Tercer Lugar": "🥉 Tercer Lugar — P103",
+    "Final":        "🏆 Gran Final — P104",
 }
 
 # ─────────────────────────────────────────────
@@ -438,7 +447,7 @@ def render_auditoria_grupos(conn, usuario_filtro=None):
     - Nombres de equipos, resultado y puntos
     """
     es_admin = usuario_filtro is None
-    st.markdown("#### 📋 Apuestas por Grupo")
+    st.markdown("#### 📋 Pronósticos por Grupos")
 
     grupo_sel = st.selectbox("Ver grupo:", ["Todos"] + list(grupos.keys()),
                               key=f"aud_grupo_{usuario_filtro or 'admin'}")
@@ -531,7 +540,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
     - Partido cerrado (resultado publicado): todos ven las apuestas de todos
     """
     es_admin = usuario_filtro is None
-    st.markdown("#### ⚽ Apuestas Eliminatorias")
+    st.markdown("#### ⚽ Pronósticos Eliminatorias")
 
     ronda_sel = st.selectbox("Ver ronda:", ["Todas"] + RONDAS,
                               key=f"aud_ronda_{usuario_filtro or 'admin'}")
@@ -626,7 +635,7 @@ st.markdown("""<div class="reglas-container"><div style="text-align:center">
 if not st.session_state.user:
     _,col_log,_=st.columns([1,1.5,1])
     with col_log:
-        st.markdown('<div style="background:white;padding:20px;border-radius:25px;box-shadow:0 25px 20px -12px rgba(0,0,0,0.25)">', unsafe_allow_html=True)
+        st.markdown('<div style="background:white;padding:20px;border-radius:25px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">', unsafe_allow_html=True)
         opcion=st.radio("Acceso al Sistema",["Ingresar","Registrarse"],horizontal=True)
         if opcion=="Ingresar":
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
@@ -642,7 +651,7 @@ if not st.session_state.user:
                     else: st.error("Credenciales inválidas")
         else:
             st.markdown("**Datos de acceso**")
-            nu = st.text_input("Usuario (para mostrar e iniciar sesión) *")
+            nu = st.text_input("Nombre de usuario (para iniciar sesión) *")
             np = st.text_input("Contraseña (mínimo 8 caracteres) *", type="password")
             np2 = st.text_input("Confirmar contraseña *", type="password")
             st.markdown("**Datos personales**")
@@ -678,8 +687,8 @@ if not st.session_state.user:
                                 (nu.strip(), hash_pass(np), nombre_completo.strip(),
                                  telefono.strip(), str(datetime.datetime.now())))
                             conn.commit()
-                            st.success(f"✅ ¡Registro exitoso! Bienvenido, ahora puedes iniciar sesión.")
-                            time.sleep(5); st.rerun()
+                            st.success(f"✅ ¡Cuenta creada! Bienvenido, {nombre_completo.strip().split()[0]}.")
+                            time.sleep(1); st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
                     finally: conn.close()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -693,14 +702,14 @@ else:
         if st.button("🔄 Refrescar",use_container_width=True): st.rerun()
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
-        st.info("Los partidos se bloquean una hora antes del inicio del juego.")
-        st.info("💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
+        st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
         
+
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
     if st.session_state.user != "ADMIN":
-        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 MIS APUESTAS"])
+        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS"])
 
         # ── GRUPOS ────────────────────────────
         with tabs[0]:
@@ -776,7 +785,7 @@ else:
             cc.write("**Mejores 3°:**")
             for e in cl["terceros"]: cc.write(f"• {e}")
             
-             # ── ELIMINATORIAS (USUARIO) ────────────
+            # ── ELIMINATORIAS (USUARIO) ────────────
         with tabs[2]:
             conn_el=conectar_db()
             st.markdown("### 🏆 Bracket FIFA 2026")
@@ -785,7 +794,7 @@ else:
             for ronda in RONDAS:
                 matches_ronda = MATCHES_POR_RONDA[ronda]
                 partidos_bd = {
-                    row[0]: row for row in conn_el.execute(
+                    int(row[0]): row for row in conn_el.execute(
                         "SELECT partido_id,equipo1,equipo2,abierto_apuestas FROM elim_partidos WHERE ronda=?",
                         (ronda,)).fetchall()
                 }
@@ -950,8 +959,8 @@ else:
 
                     for mid in matches_ronda:
                         p = conn.execute(
-                            "SELECT partido_id,equipo1,equipo2,abierto_apuestas FROM elim_partidos WHERE partido_id=?",
-                            (mid,)).fetchone()
+                            "SELECT partido_id,equipo1,equipo2,abierto_apuestas FROM elim_partidos WHERE CAST(partido_id AS INTEGER)=?",
+                            (int(mid),)).fetchone()
 
                         if p:
                             _,eq1,eq2,abierto = p
