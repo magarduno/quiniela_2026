@@ -671,13 +671,13 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN EN DESPACHO, 💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
+        st.info("EFECTIVO EN DESPACHO 💵,\n 💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
 
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
     if st.session_state.user != "ADMIN":
-        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONOSTICOS"])
+        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS"])
 
         # ── GRUPOS ────────────────────────────
         with tabs[0]:
