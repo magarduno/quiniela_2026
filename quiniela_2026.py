@@ -625,8 +625,9 @@ st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
   <span class="regla-item">🤝 EMPATE: 1 PT</span>
-  <span class="regla-item" style="color:#7c3aed">⚽ 2A FASE GANADOR+PENALES: 3 PTS</span>
-  <span class="regla-item" style="color:#7c3aed">⚽ 2A FASE SOLO GANADOR: 2 PTS</span>
+  <span class="regla-item" style="color:#7c3aed">⚽ 2A F. GANADOR+PENALES: 3 PTS</span>
+  <span class="regla-item" style="color:#7c3aed">⚽ 2A F. GANADOR: 2 PTS</span>
+  <span class="regla-item" style="color:#7c3aed">⚽ 2A F. GANADOR EN PENALES: 1 PT</span>
 </div></div>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
