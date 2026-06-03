@@ -704,7 +704,7 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("Efectivo en el despacho\n Depósitos B. Azteca 💳\n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
+        st.info("💵 Efectivo en el despacho \n Depósitos B. Azteca 💳 Tarjeta: 💳 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
         
 
     # ══════════════════════════════════════════
