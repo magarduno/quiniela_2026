@@ -595,7 +595,7 @@ st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🤝 EMPATE: 1 PT</span>
   <span class="regla-item" style="color:#7c3aed">⚽ 2a F. GANADOR+PENALES: 3 PTS</span>
   <span class="regla-item" style="color:#7c3aed">⚽ 2a F. GANADOR O EMPATE(PENALES): 2 PTS</span>
-  <span class="regla-item" style="color:#d97706">🎲 2a F. GANADOR EN PENALES: 1 PT</span>
+  <span class="regla-item" style="color:#7c3aed">🎲 2a F. GANADOR EN PENALES: 1 PT</span>
 </div></div>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
