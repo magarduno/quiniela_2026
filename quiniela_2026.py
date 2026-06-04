@@ -20,7 +20,7 @@ st.markdown("""
     .reglas-container { background:white; padding:25px; border-radius:20px; border:1px solid #e2e8f0;
         box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom:30px; border-top:5px solid #3b82f6; }
     .regla-item { display:inline-block; margin:0 15px; font-weight:700; color:#1e40af; }
-    .match-card         { background:white; padding:25px; border-radius:20px; margin-bottom:20px;
+    .match-card         { background:white; padding:15px; border-radius:20px; margin-bottom:20px;
         box-shadow:0 10px 15px -3px rgba(0,0,0,0.08); border:1px solid #f1f5f9; transition:transform .2s; }
     .match-card:hover   { transform:translateY(-3px); }
     .match-card-cerrado { background:#f8fafc; padding:25px; border-radius:20px; margin-bottom:20px;
@@ -36,9 +36,9 @@ st.markdown("""
         border-radius:15px; margin:30px 0 20px 0; font-size:1.4rem; font-weight:800;
         display:flex; justify-content:space-between; align-items:center; }
     .res-fijo   { font-size:2rem; font-weight:900; color:#1e3a8a; text-align:center; background:#f8fafc;
-        padding:15px; border-radius:12px; border:3px solid #e2e8f0; }
+        padding:10px; border-radius:12px; border:3px solid #e2e8f0; }
     .res-empate { font-size:2rem; font-weight:900; color:#d97706; text-align:center; background:#fffbeb;
-        padding:15px; border-radius:12px; border:3px solid #fcd34d; }
+        padding:10px; border-radius:12px; border:3px solid #fcd34d; }
     .label-equipo { font-size:.75rem; color:#94a3b8; font-weight:800; text-transform:uppercase;
         letter-spacing:1px; margin-bottom:8px; }
     .vs-text { font-size:1.3rem; font-weight:900; color:#cbd5e1; text-align:center; margin-top:35px; }
@@ -671,8 +671,7 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN DESPACHO 💵,\n Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
-
+        
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
@@ -794,11 +793,11 @@ else:
             st.subheader("🏅 Clasificados actuales")
             cl=get_clasificados()
             ca,cb,cc=st.columns(3)
-            ca.write("**1° de grupo:**")
+            ca.write("**🥇 1° de grupo:**")
             for e in cl["primeros"]: ca.write(f"• {e}")
-            cb.write("**2° de grupo:**")
+            cb.write("**🥈 2° de grupo:**")
             for e in cl["segundos"]: cb.write(f"• {e}")
-            cc.write("**Mejores 3°:**")
+            cc.write("**🥉 Mejores 3°:**")
             for e in cl["terceros"]: cc.write(f"• {e}")
 
 # ── ELIMINATORIAS (USUARIO) ────────────
