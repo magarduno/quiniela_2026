@@ -671,7 +671,8 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN DESPACHO 💵,\n Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")
+        st.info("EFECTIVO EN DESPACHO 💵,\n 💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")    
+        
         
     # ══════════════════════════════════════════
     # USUARIO NORMAL
@@ -893,6 +894,26 @@ else:
             if row_pago and row_pago[0]==0:
                 st.warning("⚠️ Tu inscripción aún no ha sido confirmada como pagada. "
                            "Tus puntos no aparecerán en el ranking hasta que el administrador confirme tu pago.")
+            else:
+                conn_usp=conectar_db()                
+                df_usp=pd.read_sql(
+                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and pagado==1",conn_usp)
+                conn_usp.close()
+                if df_usp.empty: st.info("No hay usuarios registrados.")
+                else:
+                 total_p = len(df_usp) * 235
+                 p1 = total_p * 60 / 100
+                 p2 = total_p * 30 / 100
+                 p3 = total_p * 10 / 100
+                 st.markdown(f"""<div class="reglas-container"><div style="text-align:center">
+                    <span class="regla-item"> QUINIELAS PAGADAS:-> </span>
+                    <span class="regla-item" style="color:#228B22;font-size:18px"> {len(df_usp)}</span>
+                    <span class="regla-item"> PREMIOS: </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥇 1°: ${format(p1, ",.2f")} </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥈 2°: ${format(p2, ",.2f")} </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥉 3°: ${format(p3, ",.2f")} </span>
+                    </div></div>""", unsafe_allow_html=True)
+                 st.caption(f"Total: **{len(df_usp)}** participantes")
             df_rank=calcular_ranking_global()
             if not df_rank.empty: df_rank.insert(0,"Pos",range(1,len(df_rank)+1))
             st.dataframe(df_rank,use_container_width=True,hide_index=True)
