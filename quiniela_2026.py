@@ -897,7 +897,7 @@ else:
             else:
                 conn_usp=conectar_db()                
                 df_usp=pd.read_sql(
-                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and pagado==1",conn_usp)
+                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and username!='MG TEST' and pagado==1",conn_usp)
                 conn_usp.close()
                 if df_usp.empty: st.info("No hay usuarios registrados.")
                 else:
