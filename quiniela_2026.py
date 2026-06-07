@@ -36,9 +36,9 @@ st.markdown("""
         border-radius:15px; margin:30px 0 20px 0; font-size:1.4rem; font-weight:800;
         display:flex; justify-content:space-between; align-items:center; }
     .res-fijo   { font-size:2rem; font-weight:900; color:#1e3a8a; text-align:center; background:#f8fafc;
-        padding:10px; border-radius:12px; border:3px solid #e2e8f0; }
+        padding:0px; border-radius:12px; border:3px solid #e2e8f0; }
     .res-empate { font-size:2rem; font-weight:900; color:#d97706; text-align:center; background:#fffbeb;
-        padding:10px; border-radius:12px; border:3px solid #fcd34d; }
+        padding:0px; border-radius:12px; border:3px solid #fcd34d; }
     .label-equipo { font-size:.75rem; color:#94a3b8; font-weight:800; text-transform:uppercase;
         letter-spacing:1px; margin-bottom:8px; }
     .vs-text { font-size:1.3rem; font-weight:900; color:#cbd5e1; text-align:center; margin-top:35px; }
@@ -68,10 +68,11 @@ def inicializar_db():
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
         (username TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT DEFAULT '',
          telefono TEXT DEFAULT '', fecha_registro TEXT,
-         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0)''')
+         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0, reseteo INTEGER DEFAULT 0)''')
     for _col, _tipo in [
         ("bloqueado",       "INTEGER DEFAULT 0"),
         ("pagado",          "INTEGER DEFAULT 0"),
+        ("reseteo",          "INTEGER DEFAULT 0"),
         ("nombre_completo", "TEXT DEFAULT ''"),
         ("telefono",        "TEXT DEFAULT ''"),
     ]:
@@ -380,37 +381,32 @@ def calcular_ranking_global():
     df_ap_elim  = pd.read_sql("SELECT * FROM elim_apuestas WHERE usuario!='ADMIN'", conn)
     df_res_elim = pd.read_sql("SELECT * FROM elim_resultados", conn)
     conn.close()
-
-    cols=["Puntos Totales","🎯 Exactos","🏆 Ganadores","🤝 Empates","⚽ Aciertos Elim"]
+    # Grupos: Exacto(3pts) | Ganador(2pts) | Empate(1pt)
+    # Elim:   Ganador+Penales(3pts) | Ganador sin penales(2pts) | Penales/no hubo(1pt)
+    cols=["Pts","Exacto","Ganador","Empate","Elim G+Pen","Elim Ganador","Elim Pen/No"]
     ranking={u:{c:0 for c in cols} for u in df_users['username']}
-
-    # ── Fase de Grupos ──────────────────────────────────────────────────────
     for _,ap in df_ap_grupo.iterrows():
         rr=df_reales[df_reales['partido_id']==ap['partido_id']]
         if not rr.empty and ap['usuario'] in ranking:
             pts=calcular_puntos_grupo(int(ap['g1']),int(ap['g2']),int(rr.iloc[0]['r1']),int(rr.iloc[0]['r2']))
-            ranking[ap['usuario']]["Puntos Totales"]+=pts
-            if pts==3: ranking[ap['usuario']]["🎯 Exactos"]+=1
-            elif pts==2: ranking[ap['usuario']]["🏆 Ganadores"]+=1
-            elif pts==1: ranking[ap['usuario']]["🤝 Empates"]+=1
-
-    # ── Eliminatorias ───────────────────────────────────────────────────────
+            ranking[ap['usuario']]["Pts"]+=pts
+            if pts==3: ranking[ap['usuario']]["Exacto"]+=1
+            elif pts==2: ranking[ap['usuario']]["Ganador"]+=1
+            elif pts==1: ranking[ap['usuario']]["Empate"]+=1
     for _,ap in df_ap_elim.iterrows():
         rr=df_res_elim[df_res_elim['partido_id']==ap['partido_id']]
         if not rr.empty and ap['usuario'] in ranking:
-            pts=calcular_puntos_elim(
-                ap['ganador'],
-                int(ap['penales']),           # apuesta del usuario
-                rr.iloc[0]['ganador'],
-                int(rr.iloc[0]['penales'])    # resultado real
-            )
-            ranking[ap['usuario']]["Puntos Totales"]+=pts
-            if pts>0: ranking[ap['usuario']]["⚽ Aciertos Elim"]+=1
-
+            _p_ap   = int(ap['penales'])         if ap['penales']         is not None and str(ap['penales'])         != 'nan' else 0
+            _p_real = int(rr.iloc[0]['penales']) if rr.iloc[0]['penales'] is not None and str(rr.iloc[0]['penales']) != 'nan' else 0
+            pts=calcular_puntos_elim(ap['ganador'],_p_ap,rr.iloc[0]['ganador'],_p_real)
+            ranking[ap['usuario']]["Pts"]+=pts
+            if pts==3: ranking[ap['usuario']]["Elim G+Pen"]+=1
+            elif pts==2: ranking[ap['usuario']]["Elim Ganador"]+=1
+            elif pts==1: ranking[ap['usuario']]["Elim Pen/No"]+=1
     rows=[{"Usuario":u,**v} for u,v in ranking.items()]
     df=pd.DataFrame(rows)
     if df.empty: return pd.DataFrame(columns=["Usuario"]+cols)
-    return df.sort_values("Puntos Totales",ascending=False)
+    return df.sort_values("Pts",ascending=False)
 
 
 def _partido_cerrado_para_vista(conn, partido_id):
@@ -605,7 +601,7 @@ if not st.session_state.user:
     _,col_log,_=st.columns([1,1.5,1])
     with col_log:
         st.markdown('<div style="background:white;padding:20px;border-radius:25px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">', unsafe_allow_html=True)
-        opcion=st.radio("Acceso al Sistema",["Ingresar","Registrarse"],horizontal=True)
+        opcion=st.radio("Acceso al Sistema",["Ingresar","Registrarse","R. Password"],horizontal=True)
         if opcion=="Ingresar":
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
             if st.button("ACCEDER",use_container_width=True):
@@ -619,47 +615,90 @@ if not st.session_state.user:
                         else: st.session_state.user=u; st.rerun()
                     else: st.error("Credenciales inválidas")
         else:
-            st.markdown("**Datos de acceso**")
-            nu = st.text_input("Nombre de usuario (para iniciar sesión) *")
-            np = st.text_input("Contraseña (mínimo 8 caracteres) *", type="password")
-            np2 = st.text_input("Confirmar contraseña *", type="password")
-            st.markdown("**Datos personales**")
-            nombre_completo = st.text_input("Nombre completo *")
-            telefono = st.text_input("Número de teléfono *")
+            if opcion=="Registrarse":
+                st.markdown("**Datos de acceso**")
+                nu = st.text_input("Nombre de usuario (para iniciar sesión) *")
+                np = st.text_input("Contraseña (mínimo 8 caracteres) *", type="password")
+                np2 = st.text_input("Confirmar contraseña *", type="password")
+                st.markdown("**Datos personales**")
+                nombre_completo = st.text_input("Nombre completo *")
+                telefono = st.text_input("Número de teléfono *")
 
-            if st.button("CREAR CUENTA", use_container_width=True):
-                if not nu.strip():
-                    st.error("⚠️ El nombre de usuario es obligatorio.")
-                elif nu.strip().lower() in ["ADMIN"]:
-                    st.error("⚠️ Ese nombre de usuario está reservado.")
-                elif not np:
-                    st.error("⚠️ La contraseña es obligatoria.")
-                elif len(np) < 8:
-                    st.error("⚠️ La contraseña debe tener al menos 8 caracteres.")
-                elif np != np2:
-                    st.error("⚠️ Las contraseñas no coinciden.")
-                elif not nombre_completo.strip():
-                    st.error("⚠️ El nombre completo es obligatorio.")
-                elif not telefono.strip():
-                    st.error("⚠️ El número de teléfono es obligatorio.")
-                elif not telefono.strip().replace("+","").replace(" ","").replace("-","").isdigit():
-                    st.error("⚠️ El teléfono solo debe contener números.")
-                else:
-                    conn=conectar_db()
-                    try:
-                        if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
-                            st.error(f"⚠️ El usuario '{nu.strip()}' ya existe. Elige otro nombre.")
-                        else:
-                            conn.execute(
-                                "INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado) VALUES(?,?,?,?,?,0,0)",
-                                (nu.strip(), hash_pass(np), nombre_completo.strip(),
-                                 telefono.strip(), str(datetime.datetime.now())))
-                            conn.commit()
-                            st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}. Ya puedes iniciar sesión")
-                            time.sleep(5); st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
-                    finally: conn.close()
-        st.markdown('</div>', unsafe_allow_html=True)
+                if st.button("CREAR CUENTA", use_container_width=True):
+                    if not nu.strip():
+                        st.error("⚠️ El nombre de usuario es obligatorio.")
+                    elif nu.strip().lower() in ["ADMIN"]:
+                        st.error("⚠️ Ese nombre de usuario está reservado.")
+                    elif not np:
+                        st.error("⚠️ La contraseña es obligatoria.")
+                    elif len(np) < 8:
+                        st.error("⚠️ La contraseña debe tener al menos 8 caracteres.")
+                    elif np != np2:
+                        st.error("⚠️ Las contraseñas no coinciden.")
+                    elif not nombre_completo.strip():
+                        st.error("⚠️ El nombre completo es obligatorio.")
+                    elif not telefono.strip():
+                        st.error("⚠️ El número de teléfono es obligatorio.")
+                    elif not telefono.strip().replace("+","").replace(" ","").replace("-","").isdigit():
+                        st.error("⚠️ El teléfono solo debe contener números.")
+                    else:
+                        conn=conectar_db()
+                        try:
+                            if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
+                                st.error(f"⚠️ El usuario '{nu.strip()}' ya existe. Elige otro nombre.")
+                            else:
+                                conn.execute(
+                                    "INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado) VALUES(?,?,?,?,?,0,0)",
+                                    (nu.strip(), hash_pass(np), nombre_completo.strip(),
+                                    telefono.strip(), str(datetime.datetime.now())))
+                                conn.commit()
+                                st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}. Ya puedes iniciar sesión")
+                                time.sleep(5); st.rerun()
+                        except Exception as e: st.error(f"Error: {e}")
+                        finally: conn.close()
+                st.markdown('</div>', unsafe_allow_html=True)
+            else: 
+                st.markdown("**Cambio de contraseña**")
+                mensaje = st.empty()
+                mensaje.warning("⚠️ Para realizar el cambio de contraseña se debe solicitar la autorización del administrador. "
+                           "Si ya lo solicitaste, puedes realizar el cambio en esta sección.")
+                nu = st.text_input("Nombre de usuario *")
+                np = st.text_input("Nueva Contraseña (mín 8 caracteres) *", type="password")
+                np2 = st.text_input("Confirmar contraseña *", type="password")
+                                
+                if st.button("CAMBIAR CONTRASEÑA", use_container_width=True):
+                    mensaje.empty()
+                    if not nu.strip():
+                        st.error("⚠️ El nombre de usuario es obligatorio.")
+                    elif nu.strip().lower() in ["ADMIN"]:
+                        st.error("⚠️ Ese nombre de usuario está reservado.")
+                    elif not np:
+                        st.error("⚠️ La contraseña es obligatoria.")
+                    elif len(np) < 8:
+                        st.error("⚠️ La contraseña debe tener al menos 8 caracteres.")
+                    elif np != np2:
+                        st.error("⚠️ Las contraseñas no coinciden.")                    
+                    else:
+                        conn=conectar_db()
+                        try:
+                            conn=conectar_db(); row=conn.execute(
+                            "SELECT username,reseteo FROM usuarios WHERE username=?",(nu.strip(),)).fetchone(); 
+                            if row is not None:
+                                if  row[1]==1: 
+                                    conn.execute(
+                                    "UPDATE usuarios SET password=?, reseteo=0 WHERE username =?",
+                                    (hash_pass(np), nu.strip()))
+                                    conn.commit()
+                                    st.success("✅ ¡Cambio de contraseña exitoso!. Ya puedes iniciar sesión")
+                                    time.sleep(6); st.rerun()
+                                else: 
+                                    st.error("❌ El cambio no ha sido autorizado por el administrador.")   
+                            else:
+                                st.error("⚠️ El nombre de usuario no es correcto")
+                        except Exception as e: st.error(f"Error: {e}")
+                        finally: conn.close()
+                st.markdown('</div>', unsafe_allow_html=True)
+                
 
 # ─────────────────────────────────────────────
 # 7. PANEL PRINCIPAL
@@ -671,7 +710,7 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN DESPACHO 💵,\n 💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")    
+        st.info("EFECTIVO EN DESPACHO 💵,\n Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")    
         
         
     # ══════════════════════════════════════════
@@ -873,7 +912,7 @@ else:
                         """, unsafe_allow_html=True)
 
                         if abierto and ambos and not ap_e and not res_e:
-                            pen_sel = st.checkbox("¿Penales?", key=f"pen_{mid}")
+                            pen_sel = st.checkbox("¿Penales?(E)", key=f"pen_{mid}")
                             if st.button(f"✅ {eq1}", key=f"ev1_{mid}", use_container_width=True):
                                 conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
                                     (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now())))
@@ -915,8 +954,50 @@ else:
                     </div></div>""", unsafe_allow_html=True)
                  st.caption(f"Total: **{len(df_usp)}** participantes")
             df_rank=calcular_ranking_global()
-            if not df_rank.empty: df_rank.insert(0,"Pos",range(1,len(df_rank)+1))
-            st.dataframe(df_rank,use_container_width=True,hide_index=True)
+            if not df_rank.empty:
+                # Tabla HTML completa
+                rows_html=""
+                for i,(_,row) in enumerate(df_rank.iterrows()):
+                    pos=i+1
+                    medal={1:"🥇",2:"🥈",3:"🥉"}.get(pos,str(pos))
+                    es_yo = row["Usuario"] == st.session_state.user
+                    bg = "background:#B5C9DE;" if es_yo else ""
+                    yo_badge = " 👤" if es_yo else ""
+                    rows_html+=f"""<tr style="{bg}">
+                      <td style="text-align:center;font-weight:900;font-size:1rem">{medal}</td>
+                      <td style="text-align:left;font-weight:800;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
+                      <td style="text-align:center;font-weight:900;color:#3b82f6;font-size:1.1rem">{row["Pts"]}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Empate",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim G+Pen",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Ganador",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Pen/No",0)}</td>
+                    </tr>"""
+
+                st.markdown(f"""
+                <div style="overflow-x:auto;background:#EDF2F7;border-radius:16px;
+                    border:1px solid #334155;padding:4px;">
+                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#cbd5e1;">
+                    <thead>
+                      <tr style="border-bottom:2px solid #334155;">
+                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
+                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:.80rem;letter-spacing:1px">JUGADOR</th>
+                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.80rem;letter-spacing:1px">PTS</th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                  </table>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Aún no hay puntos registrados.")
 
         # ── MIS APUESTAS ──────────────────────
         with tabs[4]:
@@ -1072,14 +1153,55 @@ else:
             st.subheader("Ranking General")
             if st.button("🔄 Actualizar"): st.rerun()
             df_rank=calcular_ranking_global()
-            if not df_rank.empty: df_rank.insert(0,"Pos",range(1,len(df_rank)+1))
-            st.dataframe(df_rank,use_container_width=True,hide_index=True)
+            if not df_rank.empty:
+                # Tabla HTML completa
+                rows_html=""
+                for i,(_,row) in enumerate(df_rank.iterrows()):
+                    pos=i+1
+                    medal={1:"🥇",2:"🥈",3:"🥉"}.get(pos,str(pos))
+                    es_yo = row["Usuario"] == st.session_state.user
+                    bg = "background:#B5C9DE;" if es_yo else ""
+                    yo_badge = " 👤" if es_yo else ""
+                    rows_html+=f"""<tr style="{bg}">
+                      <td style="text-align:center;font-weight:900;font-size:1rem">{medal}</td>
+                      <td style="text-align:left;font-weight:800;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
+                      <td style="text-align:center;font-weight:900;color:#3b82f6;font-size:1.1rem">{row["Pts"]}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Empate",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim G+Pen",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Ganador",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Pen/No",0)}</td>
+                    </tr>"""
 
+                st.markdown(f"""
+                <div style="overflow-x:auto;background:#EDF2F7;border-radius:16px;
+                    border:1px solid #334155;padding:4px;">
+                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#cbd5e1;">
+                    <thead>
+                      <tr style="border-bottom:2px solid #334155;">
+                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
+                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:.80rem;letter-spacing:1px">JUGADOR</th>
+                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.80rem;letter-spacing:1px">PTS</th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                  </table>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Aún no hay puntos registrados.")
         # ── USUARIOS ──────────────────────────
         with a_tabs[4]:
             st.subheader("Gestión de Usuarios")
             df_us=pd.read_sql(
-                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
+                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,reseteo FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
             if df_us.empty: st.info("No hay usuarios registrados.")
             else:
                 st.caption(f"Total: **{len(df_us)}** participantes")
@@ -1087,11 +1209,11 @@ else:
                     uname=row['username']
                     nombre_c=row.get('nombre_completo','') or ''
                     telefono_c=row.get('telefono','') or ''
-                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0))
+                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0)); reseteo=int(row.get('reseteo',0))
                     fecha=row['fecha_registro'][:10] if row['fecha_registro'] else "—"
                     n_ap=conn.execute("SELECT COUNT(*) FROM apuestas WHERE usuario=?",(uname,)).fetchone()[0]
                     n_el=conn.execute("SELECT COUNT(*) FROM elim_apuestas WHERE usuario=?",(uname,)).fetchone()[0]
-                    ci,cb2,cp,cd=st.columns([4,2,2,2])
+                    ci,cb2,cp,cd,cpw=st.columns([4,2,2,2,2])
                     with ci:
                         estado_acc  = "🔴 Bloqueado" if bloq   else "🟢 Activo"
                         estado_pago = "💰 Pagado"    if pagado else "⏳ Sin pagar"
@@ -1134,6 +1256,14 @@ else:
                             except Exception as e: st.error(f"Error: {e}")
                         if cs2.button("❌ No",key=f"cno_{uname}",use_container_width=True):
                             del st.session_state[f"cdel_{uname}"]; st.rerun()
+                            
+                    with cpw:
+                        lbl_pass = "❌ Quitar reset" if reseteo else "🔐 Reset Pass"
+                        if st.button(lbl_pass,key=f"respw_{uname}",use_container_width=True):
+                            conn.execute("UPDATE usuarios SET reseteo=? WHERE username=?",
+                                         (0 if reseteo else 1,uname))
+                            conn.commit(); st.rerun()
+                            
                     st.divider()
 
         # ── AUDITORÍA ─────────────────────────
