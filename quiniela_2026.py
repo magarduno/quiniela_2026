@@ -163,7 +163,7 @@ def inicializar_db():
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
         (username TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT DEFAULT '',
          telefono TEXT DEFAULT '', fecha_registro TEXT,
-         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0)''')
+         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0, puede_cambiar_pass INTEGER DEFAULT 0, por_premio INTEGER DEFAULT 0)''')
     for _col, _tipo in [("bloqueado","INTEGER DEFAULT 0"),("pagado","INTEGER DEFAULT 0"),
                         ("nombre_completo","TEXT DEFAULT ''"),("telefono","TEXT DEFAULT ''"),
                         ("puede_cambiar_pass","INTEGER DEFAULT 0"),("por_premio","INTEGER DEFAULT 0")]:
