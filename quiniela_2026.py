@@ -52,6 +52,101 @@ st.markdown("""
     .pendiente-badge  { background:#f1f5f9; color:#64748b; font-size:.8rem; font-weight:700;
         padding:4px 12px; border-radius:20px; border:1px solid #cbd5e1; text-align:center; margin-top:6px; }
     .stDataFrame { background:white; padding:10px; border-radius:15px; }
+    
+     /* HEADER DE GRUPO */
+    .grupo-header {
+        background: var(--secondary-background-color);
+        color: var(--text-color);
+        padding:12px 20px; border-radius:10px;
+        margin:28px 0 14px 0; font-size:clamp(1rem,4vw,1.3rem);
+        font-family:'Bebas Neue',sans-serif; letter-spacing:3px;
+        display:flex; justify-content:space-between; align-items:center;
+        border:1px solid rgba(128,128,128,0.2);
+    }
+    .grupo-estado {
+        font-size:clamp(.6rem,2vw,.75rem); font-family:'Inter',sans-serif;
+        font-weight:600; letter-spacing:1px;
+        color: var(--text-color); opacity:.5;
+    }
+
+    /* TARJETA DE PARTIDO */
+    .match-card {
+        background: var(--secondary-background-color);
+        border-radius:12px; margin-bottom:14px;
+        border:1px solid rgba(128,128,128,0.2); overflow:hidden;
+    }
+    .match-card-cerrado {
+        background: var(--secondary-background-color);
+        border-radius:12px; margin-bottom:14px;
+        border:1px solid rgba(128,128,128,0.1);
+        opacity:.55; overflow:hidden;
+    }
+    .match-band {
+        background: var(--background-color);
+        padding:7px 16px; font-size:.65rem; font-weight:700;
+        color: var(--text-color); opacity:.4;
+        letter-spacing:1.5px; text-transform:uppercase;
+        border-bottom:1px solid rgba(128,128,128,0.15);
+    }
+    .match-inner { padding:16px; }
+    .teams-row {
+        display:flex; align-items:center; justify-content:space-between;
+        gap:8px; margin-bottom:12px;
+    }
+    .team-block { flex:1; text-align:center; min-width:0; }
+    .team-flag  { width:48px; height:32px; object-fit:cover; border-radius:4px; margin-bottom:6px; }
+    .team-name  {
+        font-weight:700; font-size:clamp(.75rem,3vw,.88rem);
+        color: var(--text-color); line-height:1.2;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .score-box {
+        font-size:clamp(1.4rem,6vw,2rem); font-weight:800;
+        color: var(--text-color);
+        background: var(--background-color);
+        border:1px solid rgba(128,128,128,0.3);
+        border-radius:8px; padding:6px 14px; min-width:48px;
+        text-align:center; line-height:1;
+    }
+    .score-box-empate { color:#c49a28; border-color:rgba(196,154,40,0.3); }
+    .vs-badge {
+        font-size:.7rem; font-weight:700;
+        color: var(--text-color); opacity:.4;
+        background: var(--background-color);
+        border:1px solid rgba(128,128,128,0.2);
+        border-radius:6px; padding:4px 8px; flex-shrink:0;
+    }
+
+    /* Resultado oficial */
+    .result-oficial {
+        text-align:center;
+        background: rgba(34,197,94,0.08);
+        border:1px solid rgba(34,197,94,0.3);
+        border-radius:8px; padding:8px; margin-top:10px;
+        font-weight:700; color:#4ade80; font-size:1rem;
+    }
+    .result-oficial small { display:block; font-size:.62rem; color:#4ade80; opacity:.7; font-weight:600; margin-bottom:2px; }
+
+    /* Badges */
+    .badge-empate {
+        display:inline-block;
+        background:rgba(196,154,40,0.12); color:#c49a28;
+        font-size:.68rem; font-weight:700; padding:3px 10px;
+        border-radius:6px; border:1px solid rgba(196,154,40,0.3);
+    }
+    .badge-cerrado {
+        display:inline-block;
+        background:rgba(248,113,113,0.1); color:#f87171;
+        font-size:.68rem; font-weight:700; padding:3px 10px;
+        border-radius:6px; border:1px solid rgba(248,113,113,0.2);
+    }
+    .badge-sin-apuesta {
+        display:inline-block;
+        background: var(--background-color);
+        color: var(--text-color); opacity:.4;
+        font-size:.68rem; font-weight:600; padding:3px 10px;
+        border-radius:6px; border:1px solid rgba(128,128,128,0.2);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -68,17 +163,13 @@ def inicializar_db():
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
         (username TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT DEFAULT '',
          telefono TEXT DEFAULT '', fecha_registro TEXT,
-         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0, reseteo INTEGER DEFAULT 0)''')
-    for _col, _tipo in [
-        ("bloqueado",       "INTEGER DEFAULT 0"),
-        ("pagado",          "INTEGER DEFAULT 0"),
-        ("reseteo",          "INTEGER DEFAULT 0"),
-        ("nombre_completo", "TEXT DEFAULT ''"),
-        ("telefono",        "TEXT DEFAULT ''"),
-    ]:
+         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0)''')
+    for _col, _tipo in [("bloqueado","INTEGER DEFAULT 0"),("pagado","INTEGER DEFAULT 0"),
+                        ("nombre_completo","TEXT DEFAULT ''"),("telefono","TEXT DEFAULT ''"),
+                        ("puede_cambiar_pass","INTEGER DEFAULT 0")]:
         try: c.execute(f"ALTER TABLE usuarios ADD COLUMN {_col} {_tipo}")
         except: pass
-
+    
     c.execute('''CREATE TABLE IF NOT EXISTS apuestas (
         usuario TEXT, partido_id TEXT, g1 INTEGER, g2 INTEGER,
         es_empate INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0, fecha TEXT,
@@ -418,6 +509,10 @@ def _partido_cerrado_para_vista(conn, partido_id):
         "SELECT estado FROM estados_grupos WHERE grupo_id=?", (grupo_id,)).fetchone()
     return eg and eg[0] == 'cerrado'
 
+def flag_url(equipo):
+    code = banderas.get(equipo, "un")
+    return f"https://flagcdn.com/w80/{code}.png"
+
 def render_auditoria_grupos(conn, usuario_filtro=None):
     es_admin = usuario_filtro is None
     st.markdown("#### 📋 Apuestas por Grupo")
@@ -584,7 +679,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 if 'user' not in st.session_state: st.session_state.user=None
 
 st.markdown('<h1 class="main-title">🏆 QUINIELA MUNDIAL 2026</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Sistema de Quinielas — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Sistema de Quiniela — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
 st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
@@ -598,106 +693,85 @@ st.markdown("""<div class="reglas-container"><div style="text-align:center">
 # 6. LOGIN
 # ─────────────────────────────────────────────
 if not st.session_state.user:
-    _,col_log,_=st.columns([1,1.5,1])
+    _,col_log,_=st.columns([1,2,1])
     with col_log:
-        st.markdown('<div style="background:white;padding:20px;border-radius:25px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">', unsafe_allow_html=True)
-        opcion=st.radio("Acceso al Sistema",["Ingresar","Registrarse","R. Password"],horizontal=True)
-        if opcion=="Ingresar":
+        st.markdown("""<div style="background:linear-gradient(145deg,#1e293b,#0f172a);
+            padding:15px 28px;border-radius:24px;border:1px solid #D5D9E0;
+            box-shadow:0 25px 50px rgba(0,0,0,0.5)">""", unsafe_allow_html=True)
+        opcion=st.radio("",["🔑 Ingresar","📝 Registrarse","🔓 C. Password"],horizontal=True)
+        if "Ingresar" in opcion:
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
-            if st.button("ACCEDER",use_container_width=True):
+            if st.button("ACCEDER →",use_container_width=True,type="primary"):
                 if u=="ADMIN" and p=="MG2026mundial":
                     st.session_state.user="ADMIN"; st.rerun()
                 else:
-                    conn=conectar_db(); row=conn.execute(
-                        "SELECT password,bloqueado FROM usuarios WHERE username=?",(u,)).fetchone(); conn.close()
+                    conn=conectar_db()
+                    row=conn.execute("SELECT password,bloqueado FROM usuarios WHERE username=?",(u,)).fetchone()
+                    conn.close()
                     if row and row[0]==hash_pass(p):
-                        if row[1]==1: st.error("❌ Cuenta bloqueada. Contacta al administrador.")
+                        if row[1]==1: st.error("❌ La cuenta se encuentra bloqueada.")
                         else: st.session_state.user=u; st.rerun()
-                    else: st.error("Credenciales inválidas")
-        else:
-            if opcion=="Registrarse":
-                st.markdown("**Datos de acceso**")
-                nu = st.text_input("Nombre de usuario (para iniciar sesión) *")
-                np = st.text_input("Contraseña (mínimo 8 caracteres) *", type="password")
-                np2 = st.text_input("Confirmar contraseña *", type="password")
-                st.markdown("**Datos personales**")
-                nombre_completo = st.text_input("Nombre completo *")
-                telefono = st.text_input("Número de teléfono *")
-
-                if st.button("CREAR CUENTA", use_container_width=True):
-                    if not nu.strip():
-                        st.error("⚠️ El nombre de usuario es obligatorio.")
-                    elif nu.strip().lower() in ["ADMIN"]:
-                        st.error("⚠️ Ese nombre de usuario está reservado.")
-                    elif not np:
-                        st.error("⚠️ La contraseña es obligatoria.")
-                    elif len(np) < 8:
-                        st.error("⚠️ La contraseña debe tener al menos 8 caracteres.")
-                    elif np != np2:
-                        st.error("⚠️ Las contraseñas no coinciden.")
-                    elif not nombre_completo.strip():
-                        st.error("⚠️ El nombre completo es obligatorio.")
-                    elif not telefono.strip():
-                        st.error("⚠️ El número de teléfono es obligatorio.")
-                    elif not telefono.strip().replace("+","").replace(" ","").replace("-","").isdigit():
-                        st.error("⚠️ El teléfono solo debe contener números.")
-                    else:
-                        conn=conectar_db()
-                        try:
-                            if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
-                                st.error(f"⚠️ El usuario '{nu.strip()}' ya existe. Elige otro nombre.")
-                            else:
-                                conn.execute(
-                                    "INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado) VALUES(?,?,?,?,?,0,0)",
-                                    (nu.strip(), hash_pass(np), nombre_completo.strip(),
-                                    telefono.strip(), str(datetime.datetime.now())))
-                                conn.commit()
-                                st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}. Ya puedes iniciar sesión")
-                                time.sleep(5); st.rerun()
-                        except Exception as e: st.error(f"Error: {e}")
-                        finally: conn.close()
-                st.markdown('</div>', unsafe_allow_html=True)
-            else: 
-                st.markdown("**Cambio de contraseña**")
-                mensaje = st.empty()
-                mensaje.warning("⚠️ Para realizar el cambio de contraseña se debe solicitar la autorización del administrador. "
+                    else: st.error("❌ Credenciales inválidas")
+        elif "Registrarse" in opcion:
+            nu=st.text_input("Usuario (Para mostrar e Iniciar Sesión)*"); np=st.text_input("Contraseña (mín. 8) *",type="password")
+            np2=st.text_input("Confirmar contraseña *",type="password")
+            nombre_completo=st.text_input("Nombre completo *"); telefono=st.text_input("Teléfono *")
+            if st.button("CREAR CUENTA →",use_container_width=True,type="primary"):
+                if not nu.strip(): st.error("⚠️ Usuario obligatorio.")
+                elif nu.strip().lower()=="ADMIN": st.error("⚠️ Nombre reservado.")
+                elif len(np)<8: st.error("⚠️ Contraseña mínimo 8 caracteres.")
+                elif np!=np2: st.error("⚠️ Las contraseñas no coinciden.")
+                elif not nombre_completo.strip(): st.error("⚠️ Nombre completo obligatorio.")
+                elif not telefono.strip(): st.error("⚠️ Teléfono obligatorio.")
+                else:
+                    conn=conectar_db()
+                    try:
+                        if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
+                            st.error(f"⚠️ Usuario '{nu.strip()}' ya existe.")
+                        else:
+                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass) VALUES(?,?,?,?,?,0,0,0)",
+                                (nu.strip(),hash_pass(np),nombre_completo.strip(),telefono.strip(),str(datetime.datetime.now())))
+                            conn.commit()
+                            st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}!")
+                            time.sleep(5); st.rerun()
+                    except Exception as e: st.error(f"Error: {e}")
+                    finally: conn.close()
+        elif "Password" in opcion:
+            st.markdown("#### 🔓 Cambiar Contraseña")
+            mensaje = st.empty()
+            mensaje.warning("⚠️ Para realizar el cambio de contraseña se debe solicitar la autorización del administrador. "
                            "Si ya lo solicitaste, puedes realizar el cambio en esta sección.")
-                nu = st.text_input("Nombre de usuario *")
-                np = st.text_input("Nueva Contraseña (mín 8 caracteres) *", type="password")
-                np2 = st.text_input("Confirmar contraseña *", type="password")
-                                
-                if st.button("CAMBIAR CONTRASEÑA", use_container_width=True):
-                    mensaje.empty()
-                    if not nu.strip():
-                        st.error("⚠️ El nombre de usuario es obligatorio.")
-                    elif nu.strip().lower() in ["ADMIN"]:
-                        st.error("⚠️ Ese nombre de usuario está reservado.")
-                    elif not np:
-                        st.error("⚠️ La contraseña es obligatoria.")
-                    elif len(np) < 8:
-                        st.error("⚠️ La contraseña debe tener al menos 8 caracteres.")
-                    elif np != np2:
-                        st.error("⚠️ Las contraseñas no coinciden.")                    
-                    else:
-                        conn=conectar_db()
-                        try:
-                            conn=conectar_db(); row=conn.execute(
-                            "SELECT username,reseteo FROM usuarios WHERE username=?",(nu.strip(),)).fetchone(); 
-                            if row is not None:
-                                if  row[1]==1: 
-                                    conn.execute(
-                                    "UPDATE usuarios SET password=?, reseteo=0 WHERE username =?",
-                                    (hash_pass(np), nu.strip()))
-                                    conn.commit()
-                                    st.success("✅ ¡Cambio de contraseña exitoso!. Ya puedes iniciar sesión")
-                                    time.sleep(6); st.rerun()
-                                else: 
-                                    st.error("❌ El cambio no ha sido autorizado por el administrador.")   
-                            else:
-                                st.error("⚠️ El nombre de usuario no es correcto")
-                        except Exception as e: st.error(f"Error: {e}")
-                        finally: conn.close()
-                st.markdown('</div>', unsafe_allow_html=True)
+            u_reset = st.text_input("Tu usuario")
+            if u_reset:
+                conn_r = conectar_db()
+                row_r = conn_r.execute(
+                    "SELECT puede_cambiar_pass FROM usuarios WHERE username=?", (u_reset.strip(),)
+                ).fetchone()
+                conn_r.close()
+                if not row_r:
+                    st.error("❌ Usuario no encontrado.")
+                elif row_r[0] != 1:
+                    st.warning("⛔ El administrador aún no te ha habilitado el cambio de contraseña.")
+                else:
+                    st.success("✅ Acceso autorizado. Ingresa tu nueva contraseña.")
+                    np1 = st.text_input("Nueva contraseña (mín. 8)", type="password", key="npass1")
+                    np2 = st.text_input("Confirmar nueva contraseña", type="password", key="npass2")
+                    if st.button("💾 GUARDAR NUEVA CONTRASEÑA", use_container_width=True, type="primary"):
+                        mensaje.empty()
+                        if len(np1) < 8:
+                            st.error("⚠️ Mínimo 8 caracteres.")
+                        elif np1 != np2:
+                            st.error("⚠️ Las contraseñas no coinciden.")
+                        else:
+                            conn_r2 = conectar_db()
+                            conn_r2.execute(
+                                "UPDATE usuarios SET password=?, puede_cambiar_pass=0 WHERE username=?",
+                                (hash_pass(np1), u_reset.strip())
+                            )
+                            conn_r2.commit(); conn_r2.close()
+                            st.success("✅ Contraseña actualizada. Ya puedes volver a ingresar.")
+                            time.sleep(5); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
                 
 
 # ─────────────────────────────────────────────
@@ -710,7 +784,7 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN DESPACHO 💵,\n Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")    
+        st.info("EFECTIVO EN DESPACHO 💵,\n 💳 Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")  
         conn_usp=conectar_db()                
         df_us=pd.read_sql(
             "SELECT username FROM usuarios WHERE username!='ADMIN'",conn_usp)
@@ -728,6 +802,7 @@ else:
                     <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥉 3°: ${format(p3, ",.2f")} </span>
                     </div></div>""", unsafe_allow_html=True)
         
+        
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
@@ -735,111 +810,118 @@ else:
         tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS"])
 
         # ── GRUPOS ────────────────────────────
+        
         with tabs[0]:
             conn=conectar_db()
             for g_id,eqs in grupos.items():
                 est_g=conn.execute("SELECT estado FROM estados_grupos WHERE grupo_id=?",(g_id,)).fetchone()[0]
-                st.markdown(f"""<div class="grupo-header"><span>GRUPO {g_id}</span>
-                    <span style="font-size:1rem;opacity:.8">{'🔒 CERRADO' if est_g=='cerrado' else '🔓 ABIERTO'}</span>
+                cerrado_grupo = est_g == 'cerrado'
+                st.markdown(f"""<div class="grupo-header">
+                    <span>GRUPO {g_id}</span>
+                    <span class="grupo-estado">{'🔒 CERRADO' if cerrado_grupo else '🔓 ABIERTO'}</span>
                 </div>""", unsafe_allow_html=True)
+
                 for idx,(p1,p2) in enumerate([(0,1),(2,3),(0,2),(1,3),(0,3),(1,2)]):
                     pid=f"{g_id}_{idx}"; tl,tv=eqs[p1],eqs[p2]
                     cerrado=partido_esta_cerrado(conn,pid)
                     rr=conn.execute("SELECT r1,r2 FROM resultados_reales WHERE partido_id=?",(pid,)).fetchone()
                     ap=conn.execute("SELECT g1,g2,es_empate FROM apuestas WHERE usuario=? AND partido_id=?",
                         (st.session_state.user,pid)).fetchone()
-
                     corrigiendo = st.session_state.get(f"corrigiendo_{pid}", False)
 
-                    st.markdown(f'<div class="{"match-card-cerrado" if cerrado else "match-card"}">', unsafe_allow_html=True)
+                    card_class = "match-card-cerrado" if cerrado else "match-card"
+                    flag_tl = flag_url(tl)
+                    flag_tv = flag_url(tv)
 
+                    # Scores a mostrar
+                    score_tl = str(ap[0]) if ap else ""
+                    score_tv = str(ap[1]) if ap else ""
+                    es_emp = ap[2]==1 if ap else False
+                    score_class = "score-box score-box-empate" if es_emp else "score-box"
+
+                    # Pre-calcular bloques HTML condicionales (concatenación pura, sin f-strings con llaves)
+                    if ap:
+                        html_score_tl = '<div class="' + score_class + '" style="margin:6px auto 0;width:fit-content">' + score_tl + '</div>'
+                        html_score_tv = '<div class="' + score_class + '" style="margin:6px auto 0;width:fit-content">' + score_tv + '</div>'
+                    elif cerrado:
+                        html_score_tl = '<div class="badge-sin-apuesta">Sin apuesta</div>'
+                        html_score_tv = '<div class="badge-sin-apuesta">Sin apuesta</div>'
+                    else:
+                        html_score_tl = ''
+                        html_score_tv = ''
+
+                    if ap and es_emp and not corrigiendo:
+                        html_empate_badge = '<div style="text-align:center;margin-bottom:8px"><span class="badge-empate">🤝 APOSTASTE EMPATE</span></div>'
+                    else:
+                        html_empate_badge = ''
+
+                    if rr:
+                        html_resultado = '<div class="result-oficial"><small>✅ RESULTADO OFICIAL</small>' + str(rr[0]) + ' — ' + str(rr[1]) + '</div>'
+                    elif cerrado:
+                        html_resultado = '<div style="text-align:center"><span class="badge-cerrado">🔒 Sin resultado aún</span></div>'
+                    else:
+                        html_resultado = ''
+
+                    banda_estado = '🔒 CERRADO' if cerrado else '🔓 ABIERTO'
+
+                    html_card = (
+                        '<div class="' + card_class + '">'
+                        + '<div class="match-band">' + banda_estado + ' · ' + tl + ' vs ' + tv + '</div>'
+                        + '<div class="match-inner">'
+                        + '<div class="teams-row">'
+                        + '<div class="team-block">'
+                        + '<img src="' + flag_tl + '" class="team-flag">'
+                        + '<div class="team-name">' + tl + '</div>'
+                        + html_score_tl
+                        + '</div>'
+                        + '<div class="vs-badge">VS</div>'
+                        + '<div class="team-block">'
+                        + '<img src="' + flag_tv + '" class="team-flag">'
+                        + '<div class="team-name">' + tv + '</div>'
+                        + html_score_tv
+                        + '</div>'
+                        + '</div>'
+                        + html_empate_badge
+                        + html_resultado
+                        + '</div>'
+                        + '</div>'
+                    )
+                    st.markdown(html_card, unsafe_allow_html=True)
+
+                    # Formulario de apuesta (fuera del HTML para que Streamlit lo renderice)
                     if not cerrado and (not ap or corrigiendo):
-                        cp1,cp2=st.columns(2)
+                        c1,c2=st.columns(2)
                         default_g1 = int(ap[0]) if (ap and corrigiendo) else 0
                         default_g2 = int(ap[1]) if (ap and corrigiendo) else 0
-                        g1=cp1.number_input(f"⚽ {tl}",0,15,value=default_g1,key=f"g1_{pid}")
-                        g2=cp2.number_input(f"⚽ {tv}",0,15,value=default_g2,key=f"g2_{pid}")
+                        g1=c1.number_input(f"⚽ {tl}",0,15,value=default_g1,key=f"g1_{pid}")
+                        g2=c2.number_input(f"⚽ {tv}",0,15,value=default_g2,key=f"g2_{pid}")
+                        if corrigiendo:
+                            ca,cb,cc=st.columns([2,2,2])
+                            if ca.button("💾 ACTUALIZAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
+                                conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,pid))
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now())))
+                                conn.commit(); st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
+                            if cb.button("🤝 Empate",key=f"btn_emp_{pid}",use_container_width=True):
+                                conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,pid))
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now())))
+                                conn.commit(); st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
+                            if cc.button("❌ Cancelar",key=f"btn_cancel_{pid}",use_container_width=True):
+                                st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
+                        else:
+                            ca,cb=st.columns(2)
+                            if ca.button("💾 GUARDAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now())))
+                                conn.commit(); st.rerun()
+                            if cb.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True):
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now())))
+                                conn.commit(); st.rerun()
 
-                    cl,cv,cr=st.columns([4,2,4])
+                    elif ap and not cerrado and not corrigiendo:
+                        if st.button("✏️ Corregir pronóstico",key=f"btn_corr_{pid}",use_container_width=True):
+                            st.session_state[f"corrigiendo_{pid}"] = True; st.rerun()
 
-                    with cl:
-                        st.markdown('<p class="label-equipo">Local</p>', unsafe_allow_html=True)
-                        st.image(f"https://flagcdn.com/w160/{banderas[tl]}.png",width=60)
-                        st.subheader(tl)
-                        if ap:
-                            css="res-empate" if ap[2]==1 else "res-fijo"
-                            st.markdown(f'<div class="{css}">{ap[0]}</div>', unsafe_allow_html=True)
-                        elif cerrado:
-                            st.markdown('<div class="sin-apuesta">Sin apuesta</div>', unsafe_allow_html=True)
-
-                    with cv:
-                        st.markdown('<p class="vs-text">VS</p>', unsafe_allow_html=True)
-
-                        if not cerrado and (not ap or corrigiendo):
-                            if corrigiendo:
-                                if st.button("💾 ACTUALIZAR",key=f"btn_{pid}",use_container_width=True):
-                                    conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",
-                                        (st.session_state.user,pid))
-                                    conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",
-                                        (st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now())))
-                                    conn.commit()
-                                    st.session_state.pop(f"corrigiendo_{pid}", None)
-                                    st.rerun()
-                                if st.button("❌ Cancelar",key=f"btn_cancel_{pid}",use_container_width=True):
-                                    st.session_state.pop(f"corrigiendo_{pid}", None)
-                                    st.rerun()
-                                if st.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True,
-                                             help="Cualquier empate = 1 pt"):
-                                    conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",
-                                        (st.session_state.user,pid))
-                                    conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",
-                                        (st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now())))
-                                    conn.commit()
-                                    st.session_state.pop(f"corrigiendo_{pid}", None)
-                                    st.rerun()
-                            else:
-                                if st.button("💾 GUARDAR",key=f"btn_{pid}",use_container_width=True):
-                                    conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",
-                                        (st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now())))
-                                    conn.commit(); st.rerun()
-                                if st.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True,
-                                             help="Cualquier empate = 1 pt"):
-                                    conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",
-                                        (st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now())))
-                                    conn.commit(); st.rerun()
-
-                        elif ap and not cerrado and not corrigiendo:
-                            if ap[2]==1:
-                                st.markdown('<div class="empate-badge">🤝 EMPATE</div>', unsafe_allow_html=True)
-                            if st.button("✏️ Corregir",key=f"btn_corr_{pid}",use_container_width=True,
-                                         help="Modifica tu pronóstico antes del cierre"):
-                                st.session_state[f"corrigiendo_{pid}"] = True
-                                st.rerun()
-
-                        elif ap and cerrado:
-                            if ap[2]==1:
-                                st.markdown('<div class="empate-badge">🤝 EMPATE</div>', unsafe_allow_html=True)
-
-                        if rr:
-                            st.markdown(f"""<div style="text-align:center;margin-top:8px;color:#16a34a;font-weight:700;font-size:.75rem">
-                                ✅ OFICIAL<br><span style="font-size:1.6rem;font-weight:900">{rr[0]}-{rr[1]}</span></div>""",
-                                unsafe_allow_html=True)
-                        elif cerrado:
-                            st.markdown('<div class="cerrado-badge">🔒 Cerrado</div>', unsafe_allow_html=True)
-
-                    with cr:
-                        st.markdown('<p class="label-equipo">Visitante</p>', unsafe_allow_html=True)
-                        st.image(f"https://flagcdn.com/w160/{banderas[tv]}.png",width=60)
-                        st.subheader(tv)
-                        if ap:
-                            css="res-empate" if ap[2]==1 else "res-fijo"
-                            st.markdown(f'<div class="{css}">{ap[1]}</div>', unsafe_allow_html=True)
-                        elif cerrado:
-                            st.markdown('<div class="sin-apuesta">Sin apuesta</div>', unsafe_allow_html=True)
-
-                    st.markdown('</div>', unsafe_allow_html=True)
             conn.close()
-   
+        
         # ── POSICIONES ────────────────────────
         with tabs[1]:
             st.header("Tablas de Posiciones por Grupo")
@@ -956,9 +1038,9 @@ else:
                 if df_usp.empty: st.info("No hay usuarios registrados.")
                 else:
                  total_p = len(df_usp) * 235
-                 p1 = total_p * 60 / 100
+                 p1 = total_p * 50 / 100
                  p2 = total_p * 30 / 100
-                 p3 = total_p * 10 / 100
+                 p3 = total_p * 20 / 100
                  st.markdown(f"""<div class="reglas-container"><div style="text-align:center">
                     <span class="regla-item"> QUINIELAS PAGADAS:-> </span>
                     <span class="regla-item" style="color:#228B22;font-size:18px"> {len(df_usp)}</span>
@@ -980,7 +1062,7 @@ else:
                     yo_badge = " 👤" if es_yo else ""
                     rows_html+=f"""<tr style="{bg}">
                       <td style="text-align:center;font-weight:900;font-size:1rem">{medal}</td>
-                      <td style="text-align:left;font-weight:800;font-size:1.0rem;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
+                      <td style="text-align:left;font-weight:800; font-size:1.0rem;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
                       <td style="text-align:center;font-weight:900;color:#3b82f6;font-size:1.1rem">{row["Pts"]}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
@@ -993,7 +1075,7 @@ else:
                 st.markdown(f"""
                 <div style="overflow-x:auto;background:#EDF2F7;border-radius:16px;
                     border:1px solid #334155;padding:4px;">
-                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#cbd5e1;">
+                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#4E5B5C;">
                     <thead>
                       <tr style="border-bottom:2px solid #334155;">
                         <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
@@ -1275,7 +1357,7 @@ else:
                     with cpw:
                         lbl_pass = "❌ Quitar reset" if reseteo else "🔐 Reset Pass"
                         if st.button(lbl_pass,key=f"respw_{uname}",use_container_width=True):
-                            conn.execute("UPDATE usuarios SET reseteo=? WHERE username=?",
+                            conn.execute("UPDATE usuarios SET puede_cambiar_pass=? WHERE username=?",
                                          (0 if reseteo else 1,uname))
                             conn.commit(); st.rerun()
                             
