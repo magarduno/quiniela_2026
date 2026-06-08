@@ -713,7 +713,7 @@ if not st.session_state.user:
                         else: st.session_state.user=u; st.rerun()
                     else: st.error("❌ Credenciales inválidas")
         elif "Registrarse" in opcion:
-            nu=st.text_input("Usuario (Para mostrar e Iniciar Sesión)*"); np=st.text_input("Contraseña (mín. 8) *",type="password")
+            nu=st.text_input("Nombre corto (Para mostrar e Iniciar Sesión)*"); np=st.text_input("Contraseña (mín. 8) *",type="password")
             np2=st.text_input("Confirmar contraseña *",type="password")
             nombre_completo=st.text_input("Nombre completo *"); telefono=st.text_input("Teléfono *")
             if st.button("CREAR CUENTA →",use_container_width=True,type="primary"):
