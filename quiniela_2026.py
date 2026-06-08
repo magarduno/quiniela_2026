@@ -1298,7 +1298,7 @@ else:
         with a_tabs[4]:
             st.subheader("Gestión de Usuarios")
             df_us=pd.read_sql(
-                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
+                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,por_premio FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
             if df_us.empty: st.info("No hay usuarios registrados.")
             else:
                 st.caption(f"Total: **{len(df_us)}** participantes")
