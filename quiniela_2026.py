@@ -1362,7 +1362,7 @@ else:
                             conn.commit(); st.rerun()
                     with upp:
                         lbl_prem = "❌ Q. Premio" if premio else "📺 Premio"
-                        if st.button(lbl_prem,key=f"respw_{uname}",use_container_width=True):
+                        if st.button(lbl_prem,key=f"pprem_{uname}",use_container_width=True):
                             conn.execute("UPDATE usuarios SET por_premio=? WHERE username=?",
                                          (0 if premio else 1,uname))
                             conn.commit(); st.rerun()
