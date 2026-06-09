@@ -360,8 +360,8 @@ LLAVE_PERDEDOR = {
 RONDAS = ["32avos", "Octavos", "Cuartos", "Semifinales", "Tercer Lugar", "Final"]
 
 RONDA_LABEL = {
-    "32avos":       "🔵 Round of 32 — P73 al P88",
-    "Octavos":      "🟣 Round of 16 — P89 al P96",
+    "32avos":       "🔵 Ronda de 32 — P73 al P88",
+    "Octavos":      "🟣 Ronda de 16 — P89 al P96",
     "Cuartos":      "🟠 Cuartos de Final — P97 al P100",
     "Semifinales":  "🔴 Semifinales — P101 y P102",
     "Tercer Lugar": "🥉 Tercer Lugar — P103",
@@ -535,24 +535,25 @@ def render_auditoria_grupos(conn, usuario_filtro=None):
 
             if es_admin:
                 aps = conn.execute(
-                    "SELECT usuario,g1,g2,es_empate FROM apuestas WHERE partido_id=? ORDER BY usuario",
+                    "SELECT usuario,g1,g2,es_empate,fecha FROM apuestas WHERE partido_id=? ORDER BY fecha DESC",
                     (pid,)).fetchall()
             else:
                 if cerrado:
                     aps = conn.execute(
-                        "SELECT usuario,g1,g2,es_empate FROM apuestas WHERE partido_id=? ORDER BY usuario",
+                        "SELECT usuario,g1,g2,es_empate,fecha FROM apuestas WHERE partido_id=? ORDER BY fecha DESC",
                         (pid,)).fetchall()
                 else:
                     aps = conn.execute(
-                        "SELECT usuario,g1,g2,es_empate FROM apuestas WHERE usuario=? AND partido_id=?",
+                        "SELECT usuario,g1,g2,es_empate,fecha FROM apuestas WHERE usuario=? AND partido_id=?",
                         (usuario_filtro, pid)).fetchall()
 
             filas = []
             for ap in aps:
-                uname, g1, g2, es_empate = ap
+                uname, g1, g2, es_empate, fecha = ap
                 es_yo = (uname == usuario_filtro)
                 pronostico = f"{g1} - {g2}" + (" (empate)" if es_empate==1 else "")
                 tipo = "🤝 Empate" if es_empate==1 else "🎯 Marcador"
+                fecha = fecha [:16]
 
                 if rr:
                     r1,r2 = int(rr[0]),int(rr[1])
@@ -572,6 +573,7 @@ def render_auditoria_grupos(conn, usuario_filtro=None):
                 fila["Tipo"] = tipo
                 fila["Resultado oficial"] = resultado
                 fila["Puntos"] = pts_txt
+                fila["Fecha de apuesta"] = fecha
                 filas.append(fila)
 
             nombre_partido = f"{tl} vs {tv}"
@@ -619,23 +621,24 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 
             if es_admin:
                 aps = conn.execute(
-                    "SELECT usuario,ganador,penales FROM elim_apuestas WHERE partido_id=? ORDER BY usuario",
+                    "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
                     (pid_e,)).fetchall()
             else:
                 if cerrado:
                     aps = conn.execute(
-                        "SELECT usuario,ganador,penales FROM elim_apuestas WHERE partido_id=? ORDER BY usuario",
+                        "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
                         (pid_e,)).fetchall()
                 else:
                     aps = conn.execute(
-                        "SELECT usuario,ganador,penales FROM elim_apuestas WHERE usuario=? AND partido_id=?",
+                        "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE usuario=? AND partido_id=?",
                         (usuario_filtro, pid_e)).fetchall()
 
             filas = []
             for ap in aps:
-                uname, ganador_ap, penales_ap = ap
+                uname, ganador_ap, penales_ap, fecha = ap
                 es_yo = (uname == usuario_filtro)
                 pen_ap = "Sí" if penales_ap==1 else "No"
+                fecha = fecha [:16]
 
                 if res_e:
                     ganador_real, penales_real = res_e
@@ -655,6 +658,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                 fila["¿Penales?"] = pen_ap
                 fila["Resultado oficial"] = resultado
                 fila["Puntos"] = pts_txt
+                fila["Fecha de apuesta"] = fecha
                 filas.append(fila)
 
             bloques.append((f"{eq1} vs {eq2}", filas, cerrado))
@@ -942,7 +946,7 @@ else:
         with tabs[2]:
             conn_el=conectar_db()
             st.markdown("### 🏆 Bracket FIFA 2026")
-            st.caption("El bracket avanza automáticamente conforme se publican resultados. Cada nodo es un partido real FIFA.")
+            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y despues eliges al equipo que avanza ⚠️")
 
             for ronda in RONDAS:
                 matches_ronda = MATCHES_POR_RONDA[ronda]
@@ -1009,7 +1013,7 @@ else:
                         """, unsafe_allow_html=True)
 
                         if abierto and ambos and not ap_e and not res_e:
-                            pen_sel = st.checkbox("¿Penales?(E)", key=f"pen_{mid}")
+                            pen_sel = st.checkbox("¿Penales?(Empate)", key=f"pen_{mid}")
                             if st.button(f"✅ {eq1}", key=f"ev1_{mid}", use_container_width=True):
                                 conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
                                     (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now())))
