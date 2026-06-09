@@ -4,6 +4,7 @@ import sqlite3
 import hashlib
 import datetime
 import time
+from datetime import timedelta
 
 # ─────────────────────────────────────────────
 # 1. CONFIGURACIÓN Y ESTILOS
@@ -914,7 +915,7 @@ else:
                         else:
                             ca,cb=st.columns(2)
                             if ca.button("💾 GUARDAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
-                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now())))
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=6))))
                                 conn.commit(); st.rerun()
                             if cb.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True):
                                 conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now())))
