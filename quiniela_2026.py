@@ -735,7 +735,7 @@ if not st.session_state.user:
                         if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
                             st.error(f"⚠️ Usuario '{nu.strip()}' ya existe.")
                         else:
-                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,p_premio) VALUES(?,?,?,?,?,0,0,0,0)",
+                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,por_premio) VALUES(?,?,?,?,?,0,0,0,0)",
                                 (nu.strip(),hash_pass(np),nombre_completo.strip(),telefono.strip(),str(datetime.datetime.now())))
                             conn.commit()
                             st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}!")
