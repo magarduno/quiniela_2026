@@ -948,7 +948,7 @@ else:
         with tabs[2]:
             conn_el=conectar_db()
             st.markdown("### 🏆 Bracket FIFA 2026")
-            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y despues eliges al equipo que avanza ⚠️")
+            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y después eliges al equipo que avanza ⚠️")
 
             for ronda in RONDAS:
                 matches_ronda = MATCHES_POR_RONDA[ronda]
