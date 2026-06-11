@@ -776,7 +776,7 @@ if not st.session_state.user:
                             )
                             conn_r2.commit(); conn_r2.close()
                             st.success("✅ Contraseña actualizada. Ya puedes volver a ingresar.")
-                            time.sleep(5); st.rerun()
+                            time.sleep(10); st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
                 
 
@@ -1039,7 +1039,7 @@ else:
             else:
                 conn_usp=conectar_db()                
                 df_usp=pd.read_sql(
-                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and username!='M. Garduño' and pagado==1",conn_usp)
+                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and pagado==1",conn_usp)
                 conn_usp.close()
                 if df_usp.empty: st.info("No hay usuarios registrados.")
                 else:
@@ -1255,6 +1255,25 @@ else:
         with a_tabs[3]:
             st.subheader("Ranking General")
             if st.button("🔄 Actualizar"): st.rerun()
+            conn_usp=conectar_db()                
+            df_usp=pd.read_sql(
+                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and pagado==1",conn_usp)
+            conn_usp.close()
+            if df_usp.empty: st.info("No hay usuarios registrados.")
+            else:
+                 total_p = len(df_usp) * 235
+                 p1 = total_p * 50 / 100
+                 p2 = total_p * 30 / 100
+                 p3 = total_p * 20 / 100
+                 st.markdown(f"""<div class="reglas-container"><div style="text-align:center">
+                    <span class="regla-item"> QUINIELAS PAGADAS:-> </span>
+                    <span class="regla-item" style="color:#228B22;font-size:18px"> {len(df_usp)}</span>
+                    <span class="regla-item"> PREMIO ASEGURADO: </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥇 1°: ${format(p1, ",.2f")} </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥈 2°: ${format(p2, ",.2f")} </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥉 3°: ${format(p3, ",.2f")} </span>
+                    </div></div>""", unsafe_allow_html=True)
+                 st.caption(f"Total: **{len(df_usp)}** participantes")
             df_rank=calcular_ranking_global()
             if not df_rank.empty:
                 # Tabla HTML completa
