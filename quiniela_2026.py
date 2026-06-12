@@ -1385,13 +1385,7 @@ else:
                             conn.execute("UPDATE usuarios SET puede_cambiar_pass=? WHERE username=?",
                                          (0 if reseteo else 1,uname))
                             conn.commit(); st.rerun()
-                    with upp:
-                        lbl_prem = "❌ Q. Premio" if premio else "📺 Premio"
-                        if st.button(lbl_prem,key=f"pprem_{uname}",use_container_width=True):
-                            conn.execute("UPDATE usuarios SET por_premio=? WHERE username=?",
-                                         (0 if premio else 1,uname))
-                            conn.commit(); st.rerun()
-                            
+                           
                     st.divider()
 
         # ── AUDITORÍA ─────────────────────────
