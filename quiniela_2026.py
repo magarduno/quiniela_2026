@@ -6,7 +6,6 @@ import datetime
 import time
 from datetime import timedelta
 
-
 # ─────────────────────────────────────────────
 # 1. CONFIGURACIÓN Y ESTILOS
 # ─────────────────────────────────────────────
@@ -165,10 +164,10 @@ def inicializar_db():
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
         (username TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT DEFAULT '',
          telefono TEXT DEFAULT '', fecha_registro TEXT,
-         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0, puede_cambiar_pass INTEGER DEFAULT 0, por_premio INTEGER DEFAULT 0)''')
+         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0)''')
     for _col, _tipo in [("bloqueado","INTEGER DEFAULT 0"),("pagado","INTEGER DEFAULT 0"),
                         ("nombre_completo","TEXT DEFAULT ''"),("telefono","TEXT DEFAULT ''"),
-                        ("puede_cambiar_pass","INTEGER DEFAULT 0"),("por_premio","INTEGER DEFAULT 0")]:
+                        ("puede_cambiar_pass","INTEGER DEFAULT 0")]:
         try: c.execute(f"ALTER TABLE usuarios ADD COLUMN {_col} {_tipo}")
         except: pass
     
@@ -685,7 +684,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 if 'user' not in st.session_state: st.session_state.user=None
 
 st.markdown('<h1 class="main-title">🏆 QUINIELA MUNDIAL 2026</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Sistema de Quiniela — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Sistema de Quinielas — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
 st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
@@ -735,7 +734,7 @@ if not st.session_state.user:
                         if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
                             st.error(f"⚠️ Usuario '{nu.strip()}' ya existe.")
                         else:
-                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,por_premio) VALUES(?,?,?,?,?,0,0,0,0)",
+                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass) VALUES(?,?,?,?,?,0,0,0)",
                                 (nu.strip(),hash_pass(np),nombre_completo.strip(),telefono.strip(),str(datetime.datetime.now())))
                             conn.commit()
                             st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}!")
@@ -776,7 +775,7 @@ if not st.session_state.user:
                             )
                             conn_r2.commit(); conn_r2.close()
                             st.success("✅ Contraseña actualizada. Ya puedes volver a ingresar.")
-                            time.sleep(10); st.rerun()
+                            time.sleep(5); st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
                 
 
@@ -790,14 +789,14 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN DESPACHO 💵,\n Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")  
+        st.info("Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")    
         conn_usp=conectar_db()                
         df_us=pd.read_sql(
-            "SELECT username FROM usuarios WHERE username!='ADMIN' and username!='M. Garduño'",conn_usp)
+            "SELECT username FROM usuarios WHERE username!='ADMIN'",conn_usp)
         conn_usp.close()
         if df_us.empty: st.info("No hay usuarios registrados.")
         else:
-                 total_p = len(df_us) * 235
+                 total_p = len(df_us) * 100
                  p1 = total_p * 50 / 100
                  p2 = total_p * 30 / 100
                  p3 = total_p * 20 / 100
@@ -1043,7 +1042,7 @@ else:
                 conn_usp.close()
                 if df_usp.empty: st.info("No hay usuarios registrados.")
                 else:
-                 total_p = len(df_usp) * 235
+                 total_p = len(df_usp) * 100
                  p1 = total_p * 50 / 100
                  p2 = total_p * 30 / 100
                  p3 = total_p * 20 / 100
@@ -1060,8 +1059,14 @@ else:
             if not df_rank.empty:
                 # Tabla HTML completa
                 rows_html=""
+                ranking = {}
+                pos = 0
+                ptsA = None
                 for i,(_,row) in enumerate(df_rank.iterrows()):
-                    pos=i+1
+                    pts = row["Pts"]
+                    if ptsA is None or pts != ptsA: 
+                        pos += 1
+                        ptsA = pts
                     medal={1:"🥇",2:"🥈",3:"🥉"}.get(pos,str(pos))
                     es_yo = row["Usuario"] == st.session_state.user
                     bg = "background:#B5C9DE;" if es_yo else ""
@@ -1261,7 +1266,7 @@ else:
             conn_usp.close()
             if df_usp.empty: st.info("No hay usuarios registrados.")
             else:
-                 total_p = len(df_usp) * 235
+                 total_p = len(df_usp) * 100
                  p1 = total_p * 50 / 100
                  p2 = total_p * 30 / 100
                  p3 = total_p * 20 / 100
@@ -1278,8 +1283,14 @@ else:
             if not df_rank.empty:
                 # Tabla HTML completa
                 rows_html=""
+                ranking = {}
+                pos = 0
+                ptsA = None
                 for i,(_,row) in enumerate(df_rank.iterrows()):
-                    pos=i+1
+                    pts = row["Pts"]
+                    if ptsA is None or pts != ptsA: 
+                        pos += 1
+                        ptsA = pts
                     medal={1:"🥇",2:"🥈",3:"🥉"}.get(pos,str(pos))
                     es_yo = row["Usuario"] == st.session_state.user
                     bg = "background:#B5C9DE;" if es_yo else ""
@@ -1316,14 +1327,14 @@ else:
                     <tbody>{rows_html}</tbody>
                   </table>
                 </div>
-                """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)                  
             else:
                 st.info("Aún no hay puntos registrados.")
         # ── USUARIOS ──────────────────────────
         with a_tabs[4]:
             st.subheader("Gestión de Usuarios")
             df_us=pd.read_sql(
-                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,por_premio FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
+                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
             if df_us.empty: st.info("No hay usuarios registrados.")
             else:
                 st.caption(f"Total: **{len(df_us)}** participantes")
@@ -1331,11 +1342,11 @@ else:
                     uname=row['username']
                     nombre_c=row.get('nombre_completo','') or ''
                     telefono_c=row.get('telefono','') or ''
-                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0)); reseteo=int(row.get('puede_cambiar_pass',0)); premio=int(row.get('por_premio',0))
+                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0)); reseteo=int(row.get('puede_cambiar_pass',0))
                     fecha=row['fecha_registro'][:10] if row['fecha_registro'] else "—"
                     n_ap=conn.execute("SELECT COUNT(*) FROM apuestas WHERE usuario=?",(uname,)).fetchone()[0]
                     n_el=conn.execute("SELECT COUNT(*) FROM elim_apuestas WHERE usuario=?",(uname,)).fetchone()[0]
-                    ci,cb2,cp,cd,cpw,upp=st.columns([4,2,2,2,2,2])
+                    ci,cb2,cp,cd,cpw=st.columns([4,2,2,2,2])
                     with ci:
                         estado_acc  = "🔴 Bloqueado" if bloq   else "🟢 Activo"
                         estado_pago = "💰 Pagado"    if pagado else "⏳ Sin pagar"
@@ -1385,7 +1396,7 @@ else:
                             conn.execute("UPDATE usuarios SET puede_cambiar_pass=? WHERE username=?",
                                          (0 if reseteo else 1,uname))
                             conn.commit(); st.rerun()
-                           
+                            
                     st.divider()
 
         # ── AUDITORÍA ─────────────────────────
