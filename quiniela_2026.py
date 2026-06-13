@@ -127,7 +127,7 @@ st.markdown("""
         border-radius:8px; padding:8px; margin-top:10px;
         font-weight:700; color:#22AB56; font-size:1.4rem;
     }
-    .result-oficial small { display:block; font-size:.82rem; color:#22AB56; opacity:.7; font-weight:600; margin-bottom:2px; }
+    .result-oficial small { display:block; font-size:.82rem; color:#22AB56; opacity:.6; font-weight:600; margin-bottom:2px; }
 
     /* Badges */
     .badge-empate {
