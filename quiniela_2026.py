@@ -685,7 +685,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 if 'user' not in st.session_state: st.session_state.user=None
 
 st.markdown('<h1 class="main-title">🏆 QUINIELA MUNDIAL 2026</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Sistema de Quiniela — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Quiniela (AMyK) — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
 st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
