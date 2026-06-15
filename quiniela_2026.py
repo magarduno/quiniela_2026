@@ -796,7 +796,7 @@ else:
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
-    if st.session_state.user != "ADMIN":
+    if st.session_state.user != "M. Garduño":
         tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS"])
 
         # ── GRUPOS ────────────────────────────
