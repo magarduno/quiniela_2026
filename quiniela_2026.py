@@ -1074,8 +1074,8 @@ else:
                   <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#4E5B5C;">
                     <thead>
                       <tr style="border-bottom:2px solid #334155;">
-                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
-                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:.80rem;letter-spacing:1px">JUGADOR</th>
+                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
+                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
                         <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.90rem;letter-spacing:1px">PTS</th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
@@ -1296,11 +1296,11 @@ else:
                 st.markdown(f"""
                 <div style="overflow-x:auto;background:#EDF2F7;border-radius:16px;
                     border:1px solid #334155;padding:4px;">
-                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#cbd5e1;">
+                  <table style="width:100%;border-collapse:collapse;font-size:1.0rem;color:#4E5B5C;">
                     <thead>
                       <tr style="border-bottom:2px solid #334155;">
-                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
-                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:.80rem;letter-spacing:1px">JUGADOR</th>
+                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
+                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
                         <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.80rem;letter-spacing:1px">PTS</th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
