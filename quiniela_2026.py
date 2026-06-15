@@ -1058,7 +1058,7 @@ else:
                     yo_badge = " 👤" if es_yo else ""
                     rows_html+=f"""<tr style="{bg}">
                       <td style="text-align:center;font-weight:900;font-size:1.2rem">{medal}</td>
-                      <td style="text-align:left;font-weight:800; font-size:1.0rem;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
+                      <td style="text-align:left;font-weight:800; font-size:1.1rem;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
                       <td style="text-align:center;font-weight:900;color:#3b82f6;font-size:1.1rem">{row["Pts"]}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
@@ -1076,7 +1076,7 @@ else:
                       <tr style="border-bottom:2px solid #334155;">
                         <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
                         <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:.80rem;letter-spacing:1px">JUGADOR</th>
-                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.80rem;letter-spacing:1px">PTS</th>
+                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.90rem;letter-spacing:1px">PTS</th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
@@ -1115,6 +1115,7 @@ else:
             "📊 RANKING",
             "👥 USUARIOS",
             "📜 AUDITORÍA",
+            "📜 CORRECCION",
         ])
         conn=conectar_db()
 
@@ -1393,3 +1394,110 @@ else:
             with te:
                 render_auditoria_eliminatorias(conn, usuario_filtro=None)
         conn.close()
+        
+        with a_tabs[6]:
+            conn=conectar_db()
+            for g_id,eqs in grupos.items():
+                est_g=conn.execute("SELECT estado FROM estados_grupos WHERE grupo_id=?",(g_id,)).fetchone()[0]
+                cerrado_grupo = est_g == 'cerrado'
+                st.markdown(f"""<div class="grupo-header">
+                    <span>GRUPO {g_id}</span>
+                    <span class="grupo-estado">{'🔒 CERRADO' if cerrado_grupo else '🔓 ABIERTO'}</span>
+                </div>""", unsafe_allow_html=True)
+
+                for idx,(p1,p2) in enumerate([(0,1),(2,3),(0,2),(1,3),(0,3),(1,2)]):
+                    pid=f"{g_id}_{idx}"; tl,tv=eqs[p1],eqs[p2]
+                    rr=conn.execute("SELECT r1,r2 FROM resultados_reales WHERE partido_id=?",(pid,)).fetchone()
+                    ap=conn.execute("SELECT g1,g2,es_empate FROM apuestas WHERE usuario=? AND partido_id=?",
+                        (st.session_state.user,pid)).fetchone()
+                    corrigiendo = st.session_state.get(f"corrigiendo_{pid}", False)
+
+                    card_class = "match-card"
+                    flag_tl = flag_url(tl)
+                    flag_tv = flag_url(tv)
+
+                    # Scores a mostrar
+                    score_tl = str(ap[0]) if ap else ""
+                    score_tv = str(ap[1]) if ap else ""
+                    es_emp = ap[2]==1 if ap else False
+                    score_class = "score-box score-box-empate" if es_emp else "score-box"
+
+                    # Pre-calcular bloques HTML condicionales (concatenación pura, sin f-strings con llaves)
+                    if ap:
+                        html_score_tl = '<div class="' + score_class + '" style="margin:6px auto 0;width:fit-content">' + score_tl + '</div>'
+                        html_score_tv = '<div class="' + score_class + '" style="margin:6px auto 0;width:fit-content">' + score_tv + '</div>'
+                    else:
+                        html_score_tl = ''
+                        html_score_tv = ''
+
+                    if ap and es_emp and not corrigiendo:
+                        html_empate_badge = '<div style="text-align:center;margin-bottom:8px"><span class="badge-empate">🤝 APOSTASTE EMPATE</span></div>'
+                    else:
+                        html_empate_badge = ''
+
+                    if rr:
+                        html_resultado = '<div class="result-oficial"><small>✅ RESULTADO OFICIAL</small>' + str(rr[0]) + ' — ' + str(rr[1]) + '</div>'
+                    
+                    else:
+                        html_resultado = ''
+
+                    banda_estado = '🔓 ABIERTO'
+
+                    html_card = (
+                        '<div class="' + card_class + '">'
+                        + '<div class="match-band">' + banda_estado + ' · ' + tl + ' vs ' + tv + '</div>'
+                        + '<div class="match-inner">'
+                        + '<div class="teams-row">'
+                        + '<div class="team-block">'
+                        + '<img src="' + flag_tl + '" class="team-flag">'
+                        + '<div class="team-name">' + tl + '</div>'
+                        + html_score_tl
+                        + '</div>'
+                        + '<div class="vs-badge">VS</div>'
+                        + '<div class="team-block">'
+                        + '<img src="' + flag_tv + '" class="team-flag">'
+                        + '<div class="team-name">' + tv + '</div>'
+                        + html_score_tv
+                        + '</div>'
+                        + '</div>'
+                        + html_empate_badge
+                        + html_resultado
+                        + '</div>'
+                        + '</div>'
+                    )
+                    st.markdown(html_card, unsafe_allow_html=True)
+
+                    # Formulario de apuesta (fuera del HTML para que Streamlit lo renderice)
+                    if not ap or corrigiendo:
+                        c1,c2=st.columns(2)
+                        default_g1 = int(ap[0]) if (ap and corrigiendo) else 0
+                        default_g2 = int(ap[1]) if (ap and corrigiendo) else 0
+                        g1=c1.number_input(f"⚽ {tl}",0,15,value=default_g1,key=f"g1_{pid}")
+                        g2=c2.number_input(f"⚽ {tv}",0,15,value=default_g2,key=f"g2_{pid}")
+                        if corrigiendo:
+                            ca,cb,cc=st.columns([2,2,2])
+                            if ca.button("💾 ACTUALIZAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
+                                conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,pid))
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn.commit(); st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
+                            if cb.button("🤝 Empate",key=f"btn_emp_{pid}",use_container_width=True):
+                                conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,pid))
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn.commit(); st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
+                            if cc.button("❌ Cancelar",key=f"btn_cancel_{pid}",use_container_width=True):
+                                st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
+                        else:
+                            ca,cb=st.columns(2)
+                            if ca.button("💾 GUARDAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=14))))
+                                conn.commit(); st.rerun()
+                            if cb.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True):
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn.commit(); st.rerun()
+
+                
+                        if st.button("✏️ Corregir pronóstico",key=f"btn_corr_{pid}",use_container_width=True):
+                            st.session_state[f"corrigiendo_{pid}"] = True; st.rerun()
+
+            conn.close()
+    
