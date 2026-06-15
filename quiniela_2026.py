@@ -708,8 +708,8 @@ if not st.session_state.user:
         if "Ingresar" in opcion:
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
             if st.button("ACCEDER →",use_container_width=True,type="primary"):
-                if u=="M. Garduño" and p=="MG2026mundial":
-                    st.session_state.user="M. Garduño"; st.rerun()
+                if u=="ADMIN" and p=="MG2026mundial":
+                    st.session_state.user="ADMIN"; st.rerun()
                 else:
                     conn=conectar_db()
                     row=conn.execute("SELECT password,bloqueado FROM usuarios WHERE username=?",(u,)).fetchone()
@@ -796,7 +796,7 @@ else:
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
-    if st.session_state.user != "M. Garduño":
+    if st.session_state.user != "ADMIN":
         tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS"])
 
         # ── GRUPOS ────────────────────────────
