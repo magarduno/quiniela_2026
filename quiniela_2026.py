@@ -708,8 +708,8 @@ if not st.session_state.user:
         if "Ingresar" in opcion:
             u=st.text_input("Usuario"); p=st.text_input("Contraseña",type="password")
             if st.button("ACCEDER →",use_container_width=True,type="primary"):
-                if u=="ADMIN" and p=="MG2026mundial":
-                    st.session_state.user="ADMIN"; st.rerun()
+                if u=="M. Garduño" and p=="MG2026mundial":
+                    st.session_state.user="M. Garduño"; st.rerun()
                 else:
                     conn=conectar_db()
                     row=conn.execute("SELECT password,bloqueado FROM usuarios WHERE username=?",(u,)).fetchone()
@@ -1489,7 +1489,8 @@ else:
                         else:
                             ca,cb=st.columns(2)
                             if ca.button("💾 GUARDAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
-                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=14))))
+                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=18))))
+                                conn.execute("DELETE FROM apuestas WHERE usuario='ADMIN' AND partido_id=?",(pid))
                                 conn.commit(); st.rerun()
                             if cb.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True):
                                 conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now()-timedelta(hours=6))))
