@@ -789,8 +789,8 @@ else:
         if st.button("🔄 Refrescar",use_container_width=True): st.rerun()
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
-        st.info("Los partidos se bloquean una hora antes de comenzar el encuentro.")
-        st.info("EFECTIVO EN DESPACHO 💵,\n Depósitos Banco Azteca 💳 \n Tarjeta: 4027665885774530 \n MIGUEL ANGEL GARDUÑO LOPEZ")  
+        st.info("Los partidos se bloquean antes de comenzar el encuentro.")
+        st.info("¡¡SUERTE A TODOS!!")  
        
         
     # ══════════════════════════════════════════
@@ -1301,13 +1301,13 @@ else:
                       <tr style="border-bottom:2px solid #334155;">
                         <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
                         <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
-                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.80rem;letter-spacing:1px">PTS</th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.6rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.6rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:1.0rem;letter-spacing:1px">PTS</th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
                       </tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
