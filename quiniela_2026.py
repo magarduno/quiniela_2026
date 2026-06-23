@@ -932,7 +932,7 @@ else:
         with tabs[2]:
             conn_el=conectar_db()
             st.markdown("### 🏆 Bracket FIFA 2026")
-            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y después eliges al equipo que avanza ⚠️")
+            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y después eliges al equipo que avanza")
 
             for ronda in RONDAS:
                 matches_ronda = MATCHES_POR_RONDA[ronda]
@@ -947,7 +947,7 @@ else:
                 st.markdown(f'<div class="ronda-header"><span>{RONDA_LABEL[ronda]}</span>'
                     f'<span style="font-size:.9rem;opacity:.8">{len(partidos_bd)}/{len(matches_ronda)} definidos</span>'
                     f'</div>', unsafe_allow_html=True)
-
+                
                 cols_ronda = st.columns(min(len(matches_ronda), 4))
                 for ci, mid in enumerate(matches_ronda):
                     with cols_ronda[ci % min(len(matches_ronda), 4)]:
@@ -955,6 +955,17 @@ else:
                             _,eq1,eq2,abierto = partidos_bd[mid]
                         else:
                             eq1,eq2,abierto = "","",0
+                            
+                        flag_tl = flag_url(eq1)
+                        flag_tv = flag_url(eq2)     
+                        
+                        feq1 = (
+                          '<div class="team-block">'
+                        + '<img src="' + flag_tl + '" width="45" height="20">')
+                        
+                        feq2 = (
+                          '<div class="team-block">'
+                        + '<img src="' + flag_tv + '" width="45" height="20" >')                     
 
                         ambos = bool(eq1 and eq2)
                         ap_e = conn_el.execute(
@@ -974,25 +985,25 @@ else:
 
                         res_html = ""
                         if res_e:
-                            pen_icon = " 🥅" if res_e[1] else ""
-                            res_html = f'<div style="font-size:.7rem;color:#16a34a;font-weight:700;margin-top:4px">✅ {res_e[0]}{pen_icon}</div>'
+                            pen_icon = " 🥅 P" if res_e[1] else ""
+                            res_html = f'<div style="font-size:.8rem;color:#16a34a;font-weight:700;margin-top:4px">✅ {res_e[0]}{pen_icon}</div>'
                         ap_html = ""
                         if ap_e:
-                            pen_icon = " 🥅" if ap_e[1] else ""
-                            ap_html = f'<div style="font-size:.65rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}</div>'
+                            pen_icon = " 🥅 P" if ap_e[1] else ""
+                            ap_html = f'<div style="font-size:.80rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}</div>'
 
                         st.markdown(f"""
-                        <div style="border:2px solid {border};background:{bg};border-radius:12px;
+                            <div style="border:2px solid {border};background:{bg};border-radius:12px;
                             padding:12px;margin-bottom:8px;text-align:center;">
-                            <div style="font-size:.65rem;font-weight:800;color:#64748b;margin-bottom:4px;">
+                            <div style="font-size:.80rem;font-weight:800;color:#64748b;margin-bottom:4px;">
                                 M{mid}
                             </div>
-                            <div style="font-size:.85rem;font-weight:700;color:#1e3a8a;">
-                                {eq1 if eq1 else "⏳ TBD"}
-                            </div>
-                            <div style="font-size:.7rem;color:#94a3b8;margin:2px 0;">vs</div>
-                            <div style="font-size:.85rem;font-weight:700;color:#1e3a8a;">
-                                {eq2 if eq2 else "⏳ TBD"}
+                            <div style="font-size:.95rem;font-weight:700;color:#1e3a8a;">
+                                {feq1 + "<br>" + eq1 if eq1 else "⏳ TBD"} 
+                            </div>  
+                            <div style="font-size:.7rem;color:#94a3b8;margin:4px 0;">vs</div>
+                            <div style="font-size:.95rem;font-weight:700;color:#1e3a8a;">
+                                {feq2 + "<br>" + eq2 if eq2 else "⏳ TBD"}
                             </div>
                             {res_html}{ap_html}
                         </div>
@@ -1008,6 +1019,12 @@ else:
                                 conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
                                     (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
                                 conn_el.commit(); st.rerun()
+                        
+                        elif abierto and ambos:
+                            if st.button(f"Borrar Apuesta", key=f"evd_{mid}", use_container_width=True):
+                                conn_el.execute("DELETE FROM elim_apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,mid))                                
+                                conn_el.commit(); st.rerun()
+                         
             conn_el.close()
 
         # ── RANKING ───────────────────────────
