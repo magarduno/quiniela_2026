@@ -797,11 +797,204 @@ else:
     # USUARIO NORMAL
     # ══════════════════════════════════════════
     if st.session_state.user != "ADMIN":
-        tabs=st.tabs(["📝 GRUPOS","📊 POSICIONES","🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS"])
+        tabs=st.tabs(["🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS","📝 GRUPOS","📊 POSICIONES"])
 
         # ── GRUPOS ────────────────────────────
         
+        
+# ── ELIMINATORIAS (USUARIO) ────────────
         with tabs[0]:
+            conn_el=conectar_db()
+            st.markdown("### 🏆 Bracket FIFA 2026")
+            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y después eliges al equipo que avanza")
+
+            for ronda in RONDAS:
+                matches_ronda = MATCHES_POR_RONDA[ronda]
+                _raw = conn_el.execute(
+                    "SELECT partido_id,equipo1,equipo2,abierto_apuestas FROM elim_partidos WHERE ronda=?",
+                    (ronda,)).fetchall()
+                partidos_bd = {}
+                for _r in _raw:
+                    try: partidos_bd[int(_r[0])] = _r
+                    except (ValueError, TypeError): pass
+
+                st.markdown(f'<div class="ronda-header"><span>{RONDA_LABEL[ronda]}</span>'
+                    f'<span style="font-size:.9rem;opacity:.8">{len(partidos_bd)}/{len(matches_ronda)} definidos</span>'
+                    f'</div>', unsafe_allow_html=True)
+                
+                cols_ronda = st.columns(min(len(matches_ronda), 4))
+                for ci, mid in enumerate(matches_ronda):
+                    with cols_ronda[ci % min(len(matches_ronda), 4)]:
+                        if mid in partidos_bd:
+                            _,eq1,eq2,abierto = partidos_bd[mid]
+                        else:
+                            eq1,eq2,abierto = "","",0
+                            
+                        flag_tl = flag_url(eq1)
+                        flag_tv = flag_url(eq2)     
+                        
+                        feq1 = (
+                          '<div class="team-block">'
+                        + '<img src="' + flag_tl + '" width="45" height="20">')
+                        
+                        feq2 = (
+                          '<div class="team-block">'
+                        + '<img src="' + flag_tv + '" width="45" height="20" >')                     
+
+                        ambos = bool(eq1 and eq2)
+                        ap_e = conn_el.execute(
+                            "SELECT ganador,penales FROM elim_apuestas WHERE usuario=? AND partido_id=?",
+                            (st.session_state.user, mid)).fetchone()
+                        res_e = conn_el.execute(
+                            "SELECT ganador,penales FROM elim_resultados WHERE partido_id=?",(mid,)).fetchone()
+
+                        if res_e:
+                            border,bg = "#16a34a","#f0fdf4"
+                        elif abierto and ambos:
+                            border,bg = "#7c3aed","#faf5ff"
+                        elif ambos:
+                            border,bg = "#f59e0b","#fffbeb"
+                        else:
+                            border,bg = "#cbd5e1","#f8fafc"
+
+                        res_html = ""
+                        if res_e:
+                            pen_icon = " 🥅 P" if res_e[1] else ""
+                            res_html = f'<div style="font-size:.8rem;color:#16a34a;font-weight:700;margin-top:4px">✅ {res_e[0]}{pen_icon}</div>'
+                        ap_html = ""
+                        if ap_e:
+                            pen_icon = " 🥅 P" if ap_e[1] else ""
+                            ap_html = f'<div style="font-size:.80rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}</div>'
+
+                        st.markdown(f"""
+                            <div style="border:2px solid {border};background:{bg};border-radius:12px;
+                            padding:12px;margin-bottom:8px;text-align:center;">
+                            <div style="font-size:.80rem;font-weight:800;color:#64748b;margin-bottom:4px;">
+                                M{mid}
+                            </div>
+                            <div style="font-size:.95rem;font-weight:700;color:#1e3a8a;">
+                                {feq1 + "<br>" + eq1 if eq1 else "⏳ TBD"} 
+                            </div>  
+                            <div style="font-size:.7rem;color:#94a3b8;margin:4px 0;">vs</div>
+                            <div style="font-size:.95rem;font-weight:700;color:#1e3a8a;">
+                                {feq2 + "<br>" + eq2 if eq2 else "⏳ TBD"}
+                            </div>
+                            {res_html}{ap_html}
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        if abierto and ambos and not ap_e and not res_e:
+                            pen_sel = st.checkbox("¿Penales?(Empate)", key=f"pen_{mid}")
+                            if st.button(f"✅ {eq1}", key=f"ev1_{mid}", use_container_width=True):
+                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
+                                    (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn_el.commit(); st.rerun()
+                            if st.button(f"✅ {eq2}", key=f"ev2_{mid}", use_container_width=True):
+                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
+                                    (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn_el.commit(); st.rerun()
+                        
+                        elif abierto and ambos:
+                            if st.button(f"Borrar Apuesta", key=f"evd_{mid}", use_container_width=True):
+                                conn_el.execute("DELETE FROM elim_apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,mid))                                
+                                conn_el.commit(); st.rerun()
+                         
+            conn_el.close()
+
+        # ── RANKING ───────────────────────────
+        with tabs[1]:
+            st.header("🌟 Ranking General")
+            conn_pago=conectar_db()
+            row_pago=conn_pago.execute(
+                "SELECT pagado FROM usuarios WHERE username=?",(st.session_state.user,)).fetchone()
+            conn_pago.close()
+            if row_pago and row_pago[0]==0:
+                st.warning("⚠️ Tu inscripción aún no ha sido confirmada como pagada. "
+                           "Tus puntos no aparecerán en el ranking hasta que el administrador confirme tu pago.")
+            else:
+                conn_usp=conectar_db()                
+                df_usp=pd.read_sql(
+                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and pagado==1",conn_usp)
+                conn_usp.close()
+                if df_usp.empty: st.info("No hay usuarios registrados.")
+                else:
+                 total_p = len(df_usp) * 235
+                 p1 = total_p * 50 / 100
+                 p2 = total_p * 30 / 100
+                 p3 = total_p * 20 / 100
+                 st.markdown(f"""<div class="reglas-container"><div style="text-align:center">
+                    <span class="regla-item"> QUINIELAS PAGADAS:-> </span>
+                    <span class="regla-item" style="color:#228B22;font-size:18px"> {len(df_usp)}</span>
+                    <span class="regla-item"> PREMIO ASEGURADO: </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥇 1°: ${format(p1, ",.2f")} </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥈 2°: ${format(p2, ",.2f")} </span>
+                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥉 3°: ${format(p3, ",.2f")} </span>
+                    </div></div>""", unsafe_allow_html=True)
+                 st.caption(f"Total: **{len(df_usp)}** participantes")
+            df_rank=calcular_ranking_global()
+            if not df_rank.empty:
+                # Tabla HTML completa
+                rows_html=""
+                ranking = {}
+                pos = 0
+                ptsA = None
+                for i,(_,row) in enumerate(df_rank.iterrows()):
+                    pts = row["Pts"]
+                    if ptsA is None or pts != ptsA: 
+                        pos += 1
+                        ptsA = pts
+                    medal={1:"🥇",2:"🥈",3:"🥉"}.get(pos,str(pos))
+                    es_yo = row["Usuario"] == st.session_state.user
+                    bg = "background:#B5C9DE;" if es_yo else ""
+                    yo_badge = " 👤" if es_yo else ""
+                    rows_html+=f"""<tr style="{bg}">
+                      <td style="text-align:center;font-weight:900;font-size:1.2rem">{medal}</td>
+                      <td style="text-align:left;font-weight:800; font-size:1.1rem;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
+                      <td style="text-align:center;font-weight:900;color:#3b82f6;font-size:1.1rem">{row["Pts"]}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
+                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Empate",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim G+Pen",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Ganador",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Pen/No",0)}</td>
+                    </tr>"""
+
+                st.markdown(f"""
+                <div style="overflow-x:auto;background:#EDF2F7;border-radius:16px;
+                    border:1px solid #334155;padding:4px;">
+                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#4E5B5C;">
+                    <thead>
+                      <tr style="border-bottom:2px solid #334155;">
+                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
+                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
+                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.90rem;letter-spacing:1px">PTS</th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                  </table>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Aún no hay puntos registrados.")
+
+        # ── MIS APUESTAS ──────────────────────
+        with tabs[2]:
+            st.header("📋 Pronósticos")
+            conn_ap=conectar_db()
+            tab_mg, tab_me = st.tabs(["⚽ Fase de Grupos","🏆 Eliminatorias"])
+            with tab_mg:
+                render_auditoria_grupos(conn_ap, usuario_filtro=st.session_state.user)
+            with tab_me:
+                render_auditoria_eliminatorias(conn_ap, usuario_filtro=st.session_state.user)
+            conn_ap.close()
+            
+        with tabs[3]:
             conn=conectar_db()
             for g_id,eqs in grupos.items():
                 est_g=conn.execute("SELECT estado FROM estados_grupos WHERE grupo_id=?",(g_id,)).fetchone()[0]
@@ -913,7 +1106,7 @@ else:
             conn.close()
         
         # ── POSICIONES ────────────────────────
-        with tabs[1]:
+        with tabs[4]:
             st.header("Tablas de Posiciones por Grupo")
             g_sel=st.selectbox("Grupo:",list(grupos.keys()))
             st.table(get_tabla_grupo(g_sel))
@@ -927,198 +1120,6 @@ else:
             for e in cl["segundos"]: cb.write(f"• {e}")
             cc.write("**🥉 Mejores 3°:**")
             for e in cl["terceros"]: cc.write(f"• {e}")
-
-# ── ELIMINATORIAS (USUARIO) ────────────
-        with tabs[2]:
-            conn_el=conectar_db()
-            st.markdown("### 🏆 Bracket FIFA 2026")
-            st.warning("⚠️ Importante: Para apostar al EMPATE en partido primero debes elegir la casilla 'Penales' y después eliges al equipo que avanza")
-
-            for ronda in RONDAS:
-                matches_ronda = MATCHES_POR_RONDA[ronda]
-                _raw = conn_el.execute(
-                    "SELECT partido_id,equipo1,equipo2,abierto_apuestas FROM elim_partidos WHERE ronda=?",
-                    (ronda,)).fetchall()
-                partidos_bd = {}
-                for _r in _raw:
-                    try: partidos_bd[int(_r[0])] = _r
-                    except (ValueError, TypeError): pass
-
-                st.markdown(f'<div class="ronda-header"><span>{RONDA_LABEL[ronda]}</span>'
-                    f'<span style="font-size:.9rem;opacity:.8">{len(partidos_bd)}/{len(matches_ronda)} definidos</span>'
-                    f'</div>', unsafe_allow_html=True)
-                
-                cols_ronda = st.columns(min(len(matches_ronda), 4))
-                for ci, mid in enumerate(matches_ronda):
-                    with cols_ronda[ci % min(len(matches_ronda), 4)]:
-                        if mid in partidos_bd:
-                            _,eq1,eq2,abierto = partidos_bd[mid]
-                        else:
-                            eq1,eq2,abierto = "","",0
-                            
-                        flag_tl = flag_url(eq1)
-                        flag_tv = flag_url(eq2)     
-                        
-                        feq1 = (
-                          '<div class="team-block">'
-                        + '<img src="' + flag_tl + '" width="45" height="20">')
-                        
-                        feq2 = (
-                          '<div class="team-block">'
-                        + '<img src="' + flag_tv + '" width="45" height="20" >')                     
-
-                        ambos = bool(eq1 and eq2)
-                        ap_e = conn_el.execute(
-                            "SELECT ganador,penales FROM elim_apuestas WHERE usuario=? AND partido_id=?",
-                            (st.session_state.user, mid)).fetchone()
-                        res_e = conn_el.execute(
-                            "SELECT ganador,penales FROM elim_resultados WHERE partido_id=?",(mid,)).fetchone()
-
-                        if res_e:
-                            border,bg = "#16a34a","#f0fdf4"
-                        elif abierto and ambos:
-                            border,bg = "#7c3aed","#faf5ff"
-                        elif ambos:
-                            border,bg = "#f59e0b","#fffbeb"
-                        else:
-                            border,bg = "#cbd5e1","#f8fafc"
-
-                        res_html = ""
-                        if res_e:
-                            pen_icon = " 🥅 P" if res_e[1] else ""
-                            res_html = f'<div style="font-size:.8rem;color:#16a34a;font-weight:700;margin-top:4px">✅ {res_e[0]}{pen_icon}</div>'
-                        ap_html = ""
-                        if ap_e:
-                            pen_icon = " 🥅 P" if ap_e[1] else ""
-                            ap_html = f'<div style="font-size:.80rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}</div>'
-
-                        st.markdown(f"""
-                            <div style="border:2px solid {border};background:{bg};border-radius:12px;
-                            padding:12px;margin-bottom:8px;text-align:center;">
-                            <div style="font-size:.80rem;font-weight:800;color:#64748b;margin-bottom:4px;">
-                                M{mid}
-                            </div>
-                            <div style="font-size:.95rem;font-weight:700;color:#1e3a8a;">
-                                {feq1 + "<br>" + eq1 if eq1 else "⏳ TBD"} 
-                            </div>  
-                            <div style="font-size:.7rem;color:#94a3b8;margin:4px 0;">vs</div>
-                            <div style="font-size:.95rem;font-weight:700;color:#1e3a8a;">
-                                {feq2 + "<br>" + eq2 if eq2 else "⏳ TBD"}
-                            </div>
-                            {res_html}{ap_html}
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        if abierto and ambos and not ap_e and not res_e:
-                            pen_sel = st.checkbox("¿Penales?(Empate)", key=f"pen_{mid}")
-                            if st.button(f"✅ {eq1}", key=f"ev1_{mid}", use_container_width=True):
-                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
-                                    (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
-                                conn_el.commit(); st.rerun()
-                            if st.button(f"✅ {eq2}", key=f"ev2_{mid}", use_container_width=True):
-                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
-                                    (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
-                                conn_el.commit(); st.rerun()
-                        
-                        elif abierto and ambos:
-                            if st.button(f"Borrar Apuesta", key=f"evd_{mid}", use_container_width=True):
-                                conn_el.execute("DELETE FROM elim_apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,mid))                                
-                                conn_el.commit(); st.rerun()
-                         
-            conn_el.close()
-
-        # ── RANKING ───────────────────────────
-        with tabs[3]:
-            st.header("🌟 Ranking General")
-            conn_pago=conectar_db()
-            row_pago=conn_pago.execute(
-                "SELECT pagado FROM usuarios WHERE username=?",(st.session_state.user,)).fetchone()
-            conn_pago.close()
-            if row_pago and row_pago[0]==0:
-                st.warning("⚠️ Tu inscripción aún no ha sido confirmada como pagada. "
-                           "Tus puntos no aparecerán en el ranking hasta que el administrador confirme tu pago.")
-            else:
-                conn_usp=conectar_db()                
-                df_usp=pd.read_sql(
-                    "SELECT pagado FROM usuarios WHERE username!='ADMIN' and pagado==1",conn_usp)
-                conn_usp.close()
-                if df_usp.empty: st.info("No hay usuarios registrados.")
-                else:
-                 total_p = len(df_usp) * 235
-                 p1 = total_p * 50 / 100
-                 p2 = total_p * 30 / 100
-                 p3 = total_p * 20 / 100
-                 st.markdown(f"""<div class="reglas-container"><div style="text-align:center">
-                    <span class="regla-item"> QUINIELAS PAGADAS:-> </span>
-                    <span class="regla-item" style="color:#228B22;font-size:18px"> {len(df_usp)}</span>
-                    <span class="regla-item"> PREMIO ASEGURADO: </span>
-                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥇 1°: ${format(p1, ",.2f")} </span>
-                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥈 2°: ${format(p2, ",.2f")} </span>
-                    <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥉 3°: ${format(p3, ",.2f")} </span>
-                    </div></div>""", unsafe_allow_html=True)
-                 st.caption(f"Total: **{len(df_usp)}** participantes")
-            df_rank=calcular_ranking_global()
-            if not df_rank.empty:
-                # Tabla HTML completa
-                rows_html=""
-                ranking = {}
-                pos = 0
-                ptsA = None
-                for i,(_,row) in enumerate(df_rank.iterrows()):
-                    pts = row["Pts"]
-                    if ptsA is None or pts != ptsA: 
-                        pos += 1
-                        ptsA = pts
-                    medal={1:"🥇",2:"🥈",3:"🥉"}.get(pos,str(pos))
-                    es_yo = row["Usuario"] == st.session_state.user
-                    bg = "background:#B5C9DE;" if es_yo else ""
-                    yo_badge = " 👤" if es_yo else ""
-                    rows_html+=f"""<tr style="{bg}">
-                      <td style="text-align:center;font-weight:900;font-size:1.2rem">{medal}</td>
-                      <td style="text-align:left;font-weight:800; font-size:1.1rem;color:#2E4D6B;white-space:nowrap">{row["Usuario"]}{yo_badge}</td>
-                      <td style="text-align:center;font-weight:900;color:#3b82f6;font-size:1.1rem">{row["Pts"]}</td>
-                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
-                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
-                      <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Empate",0)}</td>
-                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim G+Pen",0)}</td>
-                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Ganador",0)}</td>
-                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Pen/No",0)}</td>
-                    </tr>"""
-
-                st.markdown(f"""
-                <div style="overflow-x:auto;background:#EDF2F7;border-radius:16px;
-                    border:1px solid #334155;padding:4px;">
-                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#4E5B5C;">
-                    <thead>
-                      <tr style="border-bottom:2px solid #334155;">
-                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
-                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
-                        <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.90rem;letter-spacing:1px">PTS</th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
-                      </tr>
-                    </thead>
-                    <tbody>{rows_html}</tbody>
-                  </table>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.info("Aún no hay puntos registrados.")
-
-        # ── MIS APUESTAS ──────────────────────
-        with tabs[4]:
-            st.header("📋 Pronósticos")
-            conn_ap=conectar_db()
-            tab_mg, tab_me = st.tabs(["⚽ Fase de Grupos","🏆 Eliminatorias"])
-            with tab_mg:
-                render_auditoria_grupos(conn_ap, usuario_filtro=st.session_state.user)
-            with tab_me:
-                render_auditoria_eliminatorias(conn_ap, usuario_filtro=st.session_state.user)
-            conn_ap.close()
 
     # ══════════════════════════════════════════
     # ADMINISTRADOR
