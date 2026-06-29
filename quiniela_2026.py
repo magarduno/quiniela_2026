@@ -619,14 +619,15 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
         for pid_e,eq1,eq2 in partidos:
             res_e = conn.execute(
                 "SELECT ganador,penales FROM elim_resultados WHERE partido_id=?",(pid_e,)).fetchone()
-            cerrado = res_e is not None
-
+            #cerrado = res_e is not None
+            cerrado = conn.execute(
+                "SELECT abierto_apuestas FROM elim_partidos WHERE partido_id=?",(pid_e,)).fetchone()
             if es_admin:
                 aps = conn.execute(
                     "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
                     (pid_e,)).fetchall()
             else:
-                if cerrado:
+                if cerrado and cerrado[0]==0:
                     aps = conn.execute(
                         "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
                         (pid_e,)).fetchall()
