@@ -633,7 +633,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
         bloques = []
         for pid_e,eq1,eq2 in partidos:
             res_e = conn.execute(
-                "SELECT ganador,penales FROM elim_resultados WHERE partido_id=?",(pid_e,)).fetchone()
+                "SELECT ganador,penales,goles FROM elim_resultados WHERE partido_id=?",(pid_e,)).fetchone()
             #cerrado = res_e is not None
             cerrado = conn.execute(
                 "SELECT abierto_apuestas FROM elim_partidos WHERE partido_id=?",(pid_e,)).fetchone()
