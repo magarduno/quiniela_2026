@@ -1269,7 +1269,7 @@ else:
                                 conn.execute("UPDATE elim_partidos SET abierto_apuestas=1 WHERE partido_id=?",(mid,))
                                 conn.commit(); st.rerun()
                         elif eq1 and eq2:
-                            c_ab, c_g, c_p, c_gol, c_sv = st.columns([2,3,2,2])
+                            c_ab, c_g, c_p, c_gol, c_sv = st.columns([2,3,2,2,2])
                             lbl_ab = "⏸️ Cerrar apuestas" if abierto else "🔓 Abrir apuestas"
                             if c_ab.button(lbl_ab, key=f"ab_{mid}", use_container_width=True):
                                 conn.execute("""INSERT OR IGNORE INTO elim_partidos
