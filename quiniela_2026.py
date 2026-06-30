@@ -6,7 +6,6 @@ import datetime
 import time
 from datetime import timedelta
 
-
 # ─────────────────────────────────────────────
 # 1. CONFIGURACIÓN Y ESTILOS
 # ─────────────────────────────────────────────
@@ -127,7 +126,7 @@ st.markdown("""
         border-radius:8px; padding:8px; margin-top:10px;
         font-weight:700; color:#22AB56; font-size:1.4rem;
     }
-    .result-oficial small { display:block; font-size:.82rem; color:#22AB56; opacity:.6; font-weight:600; margin-bottom:2px; }
+    .result-oficial small { display:block; font-size:.82rem; color:#22AB56; opacity:.5; font-weight:600; margin-bottom:2px; }
 
     /* Badges */
     .badge-empate {
@@ -165,10 +164,10 @@ def inicializar_db():
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
         (username TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT DEFAULT '',
          telefono TEXT DEFAULT '', fecha_registro TEXT,
-         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0, puede_cambiar_pass INTEGER DEFAULT 0, por_premio INTEGER DEFAULT 0)''')
+         bloqueado INTEGER DEFAULT 0, pagado INTEGER DEFAULT 0)''')
     for _col, _tipo in [("bloqueado","INTEGER DEFAULT 0"),("pagado","INTEGER DEFAULT 0"),
                         ("nombre_completo","TEXT DEFAULT ''"),("telefono","TEXT DEFAULT ''"),
-                        ("puede_cambiar_pass","INTEGER DEFAULT 0"),("por_premio","INTEGER DEFAULT 0")]:
+                        ("puede_cambiar_pass","INTEGER DEFAULT 0")]:
         try: c.execute(f"ALTER TABLE usuarios ADD COLUMN {_col} {_tipo}")
         except: pass
     
@@ -226,7 +225,6 @@ def inicializar_db():
 
     conn.commit()
     conn.close()
-    
 
 def partido_esta_cerrado(conn, partido_id):
     grupo_id = partido_id.split("_")[0]
@@ -402,7 +400,7 @@ def calcular_puntos_elim(ganador_ap, penales_ap, ganador_real,penales_real,goles
        acerto_goles = 1
     else: 
        acerto_goles= 0
-
+        
      # Marcaste penales pero NO hubo penales -> 0 pt
     if penales_ap == 1 and penales_real == 0:
         return 0 + acerto_goles 
@@ -418,7 +416,7 @@ def calcular_puntos_elim(ganador_ap, penales_ap, ganador_real,penales_real,goles
 
    
     return 0 + acerto_goles
-
+    
 def get_tabla_grupo(grupo_id):
     conn = conectar_db()
     lista = grupos[grupo_id]
@@ -635,6 +633,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
             #cerrado = res_e is not None
             cerrado = conn.execute(
                 "SELECT abierto_apuestas FROM elim_partidos WHERE partido_id=?",(pid_e,)).fetchone()
+            
             if es_admin:
                 aps = conn.execute(
                     "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
@@ -654,7 +653,14 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                 uname, ganador_ap, penales_ap, fecha, goles_ap = ap
                 es_yo = (uname == usuario_filtro)
                 pen_ap = "Sí" if penales_ap==1 else "No"
-                gol_ap = "Sí" if goles_ap==1 else "No"
+                
+                if goles_ap==1: 
+                    gol_ap = "Si"
+                else:
+                    if goles_ap==0: 
+                        gol_ap = "No"
+                    else:
+                        gol_ap = ""
                 fecha = fecha [:16]
 
                 if res_e:
@@ -673,8 +679,8 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                     fila["Usuario"] = uname
                 fila["Aposté avanza"] = ganador_ap
                 fila["¿Penales?"] = pen_ap
-                fila["Resultado oficial"] = resultado
                 fila["¿+2.5Goles?"] = gol_ap
+                fila["Resultado oficial"] = resultado
                 fila["Puntos"] = pts_txt
                 fila["Fecha de apuesta"] = fecha
                 filas.append(fila)
@@ -686,13 +692,85 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 
         expanded = (ronda_sel != "Todas")
         with st.expander(f"**{RONDA_LABEL[ronda]}**", expanded=expanded):
-            for nombre, filas, cerrado in bloques:
+            for nombre_partido, filas, cerrado in bloques:
                 if not filas: continue
                 estado_icon = "🔒" if cerrado else "🔓"
-                st.markdown(f"**{estado_icon} {nombre}**"
+                st.markdown(f"**{estado_icon} {nombre_partido}**"
                     + ("" if cerrado else " — *Se revelan al publicar el resultado*"))
                 st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
                 st.markdown("---")
+                
+def render_misapuestas_grupos(conn, usuario_filtro=None):
+    st.markdown("#### 📋 Apuestas por Grupo")
+
+    grupo_sel = st.selectbox("Ver grupo:", ["Todos"] + list(grupos.keys()),
+                              key=f"map_grupo_{usuario_filtro or 'admin'}")
+    grupos_a_mostrar = list(grupos.keys()) if grupo_sel == "Todos" else [grupo_sel]
+
+    for g_id in grupos_a_mostrar:
+        eqs = grupos[g_id]
+        partidos_idx = [(0,1),(2,3),(0,2),(1,3),(0,3),(1,2)]
+        bloques = []
+
+        for idx,(p1,p2) in enumerate(partidos_idx):
+            pid = f"{g_id}_{idx}"
+            tl, tv = eqs[p1], eqs[p2]
+            cerrado = _partido_cerrado_para_vista(conn, pid)
+            rr = conn.execute(
+                "SELECT r1,r2 FROM resultados_reales WHERE partido_id=?",(pid,)).fetchone()
+
+            aps = conn.execute(
+                    "SELECT usuario,g1,g2,es_empate,fecha FROM apuestas WHERE usuario=? AND partido_id=?",
+                        (usuario_filtro, pid)).fetchall()
+
+            filas = []
+            for ap in aps:
+                uname, g1, g2, es_empate, fecha = ap
+                es_yo = (uname == usuario_filtro)
+                pronostico = f"{g1} - {g2}" + (" (empate)" if es_empate==1 else "")
+                tipo = "🤝 Empate" if es_empate==1 else "🎯 Marcador"
+                fecha = fecha [:16]
+
+                if rr:
+                    r1,r2 = int(rr[0]),int(rr[1])
+                    pts = calcular_puntos_grupo(g1,g2,r1,r2)
+                    resultado = f"{r1} - {r2}"
+                    pts_txt = {3:"🎯 3 pts",2:"🏆 2 pts",1:"🤝 1 pt",0:"❌ 0 pts"}[pts]
+                else:
+                    resultado = "⏳ Pendiente"
+                    pts_txt = "—"
+
+                fila = {"Partido": f"{tl} vs {tv}"}
+                fila["Pronóstico"] = pronostico
+                fila["Tipo"] = tipo
+                fila["Resultado oficial"] = resultado
+                fila["Puntos"] = pts_txt
+                fila["Fecha de apuesta"] = fecha
+                filas.append(fila)
+
+            nombre_partido = f"{tl} vs {tv}"
+            bloques.append((nombre_partido, filas, cerrado))
+
+        tiene_algo = any(f for _,f,_ in bloques)
+        if not tiene_algo and grupo_sel != "Todos":
+            st.info(f"No hay apuestas en el Grupo {g_id}.")
+            continue
+
+        header = f"**Grupo {g_id}**"
+        expanded = (grupo_sel != "Todos")
+
+        with st.expander(header, expanded=expanded):
+            for nombre_partido, filas, cerrado in bloques:
+                if not filas:
+                    continue
+                estado_icon = "🔒" if cerrado else "🔓"
+                st.markdown(f"**{estado_icon} {nombre_partido}**"
+                    + ("" if cerrado else " — *Las apuestas del resto se revelan al cerrar el partido*"),
+                    unsafe_allow_html=False)
+                st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
+                st.markdown("---")
+
+
 
 
 # ─────────────────────────────────────────────
@@ -701,7 +779,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 if 'user' not in st.session_state: st.session_state.user=None
 
 st.markdown('<h1 class="main-title">🏆 QUINIELA MUNDIAL 2026</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Quiniela (AMyK) — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Sistema de Quinielas — Grupos + Eliminatorias</p>', unsafe_allow_html=True)
 st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
@@ -752,7 +830,7 @@ if not st.session_state.user:
                         if conn.execute("SELECT 1 FROM usuarios WHERE username=?",(nu.strip(),)).fetchone():
                             st.error(f"⚠️ Usuario '{nu.strip()}' ya existe.")
                         else:
-                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,por_premio) VALUES(?,?,?,?,?,0,0,0,0)",
+                            conn.execute("INSERT INTO usuarios(username,password,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass) VALUES(?,?,?,?,?,0,0,0)",
                                 (nu.strip(),hash_pass(np),nombre_completo.strip(),telefono.strip(),str(datetime.datetime.now())))
                             conn.commit()
                             st.success(f"✅ ¡Registro exitoso! Bienvenido, {nombre_completo.strip().split()[0]}!")
@@ -793,7 +871,7 @@ if not st.session_state.user:
                             )
                             conn_r2.commit(); conn_r2.close()
                             st.success("✅ Contraseña actualizada. Ya puedes volver a ingresar.")
-                            time.sleep(10); st.rerun()
+                            time.sleep(5); st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
                 
 
@@ -807,18 +885,18 @@ else:
         if st.button("🚪 Salir",use_container_width=True): st.session_state.user=None; st.rerun()
         st.divider()
         st.info("Los partidos se bloquean antes de comenzar el encuentro.")
-        st.info("¡¡SUERTE A TODOS!!")  
-       
+        st.info("¡¡MUCHA SUERTE!!")    
+        
         
     # ══════════════════════════════════════════
     # USUARIO NORMAL
     # ══════════════════════════════════════════
     if st.session_state.user != "ADMIN":
-        tabs=st.tabs(["🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS","📝 GRUPOS","📊 POSICIONES"])
+        tabs=st.tabs(["🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS","📝 GRUPOS","📊 T. GRUPOS","👤 MIS APUESTAS"])
 
         # ── GRUPOS ────────────────────────────
         
-        
+
 # ── ELIMINATORIAS (USUARIO) ────────────
         with tabs[0]:
             conn_el=conectar_db()
@@ -892,7 +970,7 @@ else:
                                 gol_icon = " - ⚽ -2.5g"
                             else: gol_icon = "" 
                             ap_html = f'<div style="font-size:.80rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}{gol_icon}</div>'
-
+  
                         st.markdown(f"""
                             <div style="border:2px solid {border};background:{bg};border-radius:12px;
                             padding:12px;margin-bottom:8px;text-align:center;">
@@ -909,6 +987,7 @@ else:
                             {res_html}{ap_html}
                         </div>
                         """, unsafe_allow_html=True)
+                        
 
                         if abierto and ambos and not ap_e and not res_e:
                             goles=st.radio("Goles en partido:",[" ⚽ +2.5 goles"," ⚽ -2.5 goles"],key=f"gol_{mid}",horizontal=True)
@@ -925,7 +1004,7 @@ else:
                                 conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?,?)",
                                     (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6)),goles25))
                                 conn_el.commit(); st.rerun()
-                        
+                       
                         elif abierto and ambos:
                             if st.button(f"Borrar Apuesta", key=f"evd_{mid}", use_container_width=True):
                                 conn_el.execute("DELETE FROM elim_apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,mid))                                
@@ -950,7 +1029,7 @@ else:
                 conn_usp.close()
                 if df_usp.empty: st.info("No hay usuarios registrados.")
                 else:
-                 total_p = len(df_usp) * 235
+                 total_p = len(df_usp) * 100
                  p1 = total_p * 50 / 100
                  p2 = total_p * 30 / 100
                  p3 = total_p * 20 / 100
@@ -962,6 +1041,7 @@ else:
                     <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥈 2°: ${format(p2, ",.2f")} </span>
                     <span class="regla-item" style="color:#2E8B57;font-size:16px"> 🥉 3°: ${format(p3, ",.2f")} </span>
                     </div></div>""", unsafe_allow_html=True)
+                 st.subheader("¡¡SUERTE A TODOS!! ")
                  st.caption(f"Total: **{len(df_usp)}** participantes")
             df_rank=calcular_ranking_global()
             if not df_rank.empty:
@@ -998,8 +1078,8 @@ else:
                   <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:#4E5B5C;">
                     <thead>
                       <tr style="border-bottom:2px solid #334155;">
-                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
-                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
+                        <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:.80rem;letter-spacing:1px;white-space:nowrap">POS</th>
+                        <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:.80rem;letter-spacing:1px">JUGADOR</th>
                         <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.90rem;letter-spacing:1px">PTS</th>
                         <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2 G+Pen+g<br><span style="color:#475569">4pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2 Gan+g<br><span style="color:#475569">3pts</span></th>
@@ -1007,7 +1087,7 @@ else:
                         <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>Solo G<br><span style="color:#475569">1pt</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>                       
                       </tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
@@ -1154,6 +1234,16 @@ else:
             for e in cl["segundos"]: cb.write(f"• {e}")
             cc.write("**🥉 Mejores 3°:**")
             for e in cl["terceros"]: cc.write(f"• {e}")
+            
+        with tabs[5]:
+            st.header("📋 Mis Apuestas")
+            conn_ap=conectar_db()
+            tab_mg, tab_me = st.tabs(["⚽ Fase de Grupos","🏆 Eliminatorias"])
+            with tab_mg:
+                render_misapuestas_grupos(conn_ap, usuario_filtro=st.session_state.user)
+        #    with tab_me:
+        #       render_auditoria_eliminatorias(conn_ap, usuario_filtro=st.session_state.user)
+            conn_ap.close()
 
     # ══════════════════════════════════════════
     # ADMINISTRADOR
@@ -1167,7 +1257,6 @@ else:
             "📊 RANKING",
             "👥 USUARIOS",
             "📜 AUDITORÍA",
-            "📜 CORRECCION",
         ])
         conn=conectar_db()
 
@@ -1194,7 +1283,7 @@ else:
                 ep=conn.execute("SELECT estado FROM estados_partidos WHERE partido_id=?",(pid,)).fetchone()
                 ya_c=ep and ep[0]=='cerrado'
                 st.write(f"**{teams[i1]} vs {teams[i2]}** — {'🔒 Cerrado' if ya_c else '🔓 Abierto'}")
-                ca1,ca2,ca3=st.columns([3,3,2])
+                ca1,ca2,ca3,ca4=st.columns([3,3,2,2])
                 r1v=ca1.number_input(f"Goles {teams[i1]}",0,15,value=res_ex[0] if res_ex else 0,key=f"adm1_{pid}")
                 r2v=ca2.number_input(f"Goles {teams[i2]}",0,15,value=res_ex[1] if res_ex else 0,key=f"adm2_{pid}")
                 if ca3.button("Grabar",key=f"adm_sv_{pid}"):
@@ -1203,6 +1292,12 @@ else:
                     conn.commit()
                     tipo="🤝 Empate" if r1v==r2v else "⚽ Resultado"
                     st.success(f"✅ {tipo}: {teams[i1]} {r1v}-{r2v} {teams[i2]} — 🔒 Cerrado")
+                if ca4.button("Borrar",key=f"adm_del_{pid}"):
+                    conn.execute("DELETE FROM resultados_reales WHERE partido_id=?",(pid,)).fetchone()
+                    conn.execute("INSERT OR REPLACE INTO estados_partidos VALUES(?,'abierto')",(pid,))
+                    conn.commit()
+                    st.rerun()
+                    st.success(f"✅ Resultado borrado {teams[i1]} - {teams[i2]} — 🔓 Abierto")
                 st.divider()
 
         # ── ELIMINATORIAS (ADMIN) ─────────────
@@ -1309,7 +1404,7 @@ else:
             conn_usp.close()
             if df_usp.empty: st.info("No hay usuarios registrados.")
             else:
-                 total_p = len(df_usp) * 235
+                 total_p = len(df_usp) * 100
                  p1 = total_p * 50 / 100
                  p2 = total_p * 30 / 100
                  p3 = total_p * 20 / 100
@@ -1372,14 +1467,14 @@ else:
                     <tbody>{rows_html}</tbody>
                   </table>
                 </div>
-                """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)                  
             else:
                 st.info("Aún no hay puntos registrados.")
         # ── USUARIOS ──────────────────────────
         with a_tabs[4]:
             st.subheader("Gestión de Usuarios")
             df_us=pd.read_sql(
-                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass,por_premio FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
+                "SELECT username,nombre_completo,telefono,fecha_registro,bloqueado,pagado,puede_cambiar_pass FROM usuarios WHERE username!='ADMIN' ORDER BY fecha_registro DESC",conn)
             if df_us.empty: st.info("No hay usuarios registrados.")
             else:
                 st.caption(f"Total: **{len(df_us)}** participantes")
@@ -1387,11 +1482,11 @@ else:
                     uname=row['username']
                     nombre_c=row.get('nombre_completo','') or ''
                     telefono_c=row.get('telefono','') or ''
-                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0)); reseteo=int(row.get('puede_cambiar_pass',0)); premio=int(row.get('por_premio',0))
+                    bloq=int(row['bloqueado']); pagado=int(row.get('pagado',0)); reseteo=int(row.get('puede_cambiar_pass',0))
                     fecha=row['fecha_registro'][:10] if row['fecha_registro'] else "—"
                     n_ap=conn.execute("SELECT COUNT(*) FROM apuestas WHERE usuario=?",(uname,)).fetchone()[0]
                     n_el=conn.execute("SELECT COUNT(*) FROM elim_apuestas WHERE usuario=?",(uname,)).fetchone()[0]
-                    ci,cb2,cp,cd,cpw,upp=st.columns([4,2,2,2,2,2])
+                    ci,cb2,cp,cd,cpw=st.columns([4,2,2,2,2])
                     with ci:
                         estado_acc  = "🔴 Bloqueado" if bloq   else "🟢 Activo"
                         estado_pago = "💰 Pagado"    if pagado else "⏳ Sin pagar"
@@ -1441,7 +1536,7 @@ else:
                             conn.execute("UPDATE usuarios SET puede_cambiar_pass=? WHERE username=?",
                                          (0 if reseteo else 1,uname))
                             conn.commit(); st.rerun()
-                           
+                            
                     st.divider()
 
         # ── AUDITORÍA ─────────────────────────
@@ -1453,110 +1548,3 @@ else:
             with te:
                 render_auditoria_eliminatorias(conn, usuario_filtro=None)
         conn.close()
-        
-        with a_tabs[6]:
-            conn=conectar_db()
-            for g_id,eqs in grupos.items():
-                est_g=conn.execute("SELECT estado FROM estados_grupos WHERE grupo_id=?",(g_id,)).fetchone()[0]
-                cerrado_grupo = est_g == 'cerrado'
-                st.markdown(f"""<div class="grupo-header">
-                    <span>GRUPO {g_id}</span>
-                    <span class="grupo-estado">{'🔒 CERRADO' if cerrado_grupo else '🔓 ABIERTO'}</span>
-                </div>""", unsafe_allow_html=True)
-
-                for idx,(p1,p2) in enumerate([(0,1),(2,3),(0,2),(1,3),(0,3),(1,2)]):
-                    pid=f"{g_id}_{idx}"; tl,tv=eqs[p1],eqs[p2]
-                    rr=conn.execute("SELECT r1,r2 FROM resultados_reales WHERE partido_id=?",(pid,)).fetchone()
-                    ap=conn.execute("SELECT g1,g2,es_empate FROM apuestas WHERE usuario=? AND partido_id=?",
-                        (st.session_state.user,pid)).fetchone()
-                    corrigiendo = st.session_state.get(f"corrigiendo_{pid}", False)
-
-                    card_class = "match-card"
-                    flag_tl = flag_url(tl)
-                    flag_tv = flag_url(tv)
-
-                    # Scores a mostrar
-                    score_tl = str(ap[0]) if ap else ""
-                    score_tv = str(ap[1]) if ap else ""
-                    es_emp = ap[2]==1 if ap else False
-                    score_class = "score-box score-box-empate" if es_emp else "score-box"
-
-                    # Pre-calcular bloques HTML condicionales (concatenación pura, sin f-strings con llaves)
-                    if ap:
-                        html_score_tl = '<div class="' + score_class + '" style="margin:6px auto 0;width:fit-content">' + score_tl + '</div>'
-                        html_score_tv = '<div class="' + score_class + '" style="margin:6px auto 0;width:fit-content">' + score_tv + '</div>'
-                    else:
-                        html_score_tl = ''
-                        html_score_tv = ''
-
-                    if ap and es_emp and not corrigiendo:
-                        html_empate_badge = '<div style="text-align:center;margin-bottom:8px"><span class="badge-empate">🤝 APOSTASTE EMPATE</span></div>'
-                    else:
-                        html_empate_badge = ''
-
-                    if rr:
-                        html_resultado = '<div class="result-oficial"><small>✅ RESULTADO OFICIAL</small>' + str(rr[0]) + ' — ' + str(rr[1]) + '</div>'
-                    
-                    else:
-                        html_resultado = ''
-
-                    banda_estado = '🔓 ABIERTO'
-
-                    html_card = (
-                        '<div class="' + card_class + '">'
-                        + '<div class="match-band">' + banda_estado + ' · ' + tl + ' vs ' + tv + '</div>'
-                        + '<div class="match-inner">'
-                        + '<div class="teams-row">'
-                        + '<div class="team-block">'
-                        + '<img src="' + flag_tl + '" class="team-flag">'
-                        + '<div class="team-name">' + tl + '</div>'
-                        + html_score_tl
-                        + '</div>'
-                        + '<div class="vs-badge">VS</div>'
-                        + '<div class="team-block">'
-                        + '<img src="' + flag_tv + '" class="team-flag">'
-                        + '<div class="team-name">' + tv + '</div>'
-                        + html_score_tv
-                        + '</div>'
-                        + '</div>'
-                        + html_empate_badge
-                        + html_resultado
-                        + '</div>'
-                        + '</div>'
-                    )
-                    st.markdown(html_card, unsafe_allow_html=True)
-
-                    # Formulario de apuesta (fuera del HTML para que Streamlit lo renderice)
-                    if not ap or corrigiendo:
-                        c1,c2=st.columns(2)
-                        default_g1 = int(ap[0]) if (ap and corrigiendo) else 0
-                        default_g2 = int(ap[1]) if (ap and corrigiendo) else 0
-                        g1=c1.number_input(f"⚽ {tl}",0,15,value=default_g1,key=f"g1_{pid}")
-                        g2=c2.number_input(f"⚽ {tv}",0,15,value=default_g2,key=f"g2_{pid}")
-                        if corrigiendo:
-                            ca,cb,cc=st.columns([2,2,2])
-                            if ca.button("💾 ACTUALIZAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
-                                conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,pid))
-                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=6))))
-                                conn.commit(); st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
-                            if cb.button("🤝 Empate",key=f"btn_emp_{pid}",use_container_width=True):
-                                conn.execute("DELETE FROM apuestas WHERE usuario=? AND partido_id=?",(st.session_state.user,pid))
-                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now()-timedelta(hours=6))))
-                                conn.commit(); st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
-                            if cc.button("❌ Cancelar",key=f"btn_cancel_{pid}",use_container_width=True):
-                                st.session_state.pop(f"corrigiendo_{pid}",None); st.rerun()
-                        else:
-                            ca,cb=st.columns(2)
-                            if ca.button("💾 GUARDAR",key=f"btn_{pid}",use_container_width=True,type="primary"):
-                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g2,0,0,str(datetime.datetime.now()-timedelta(hours=18))))
-                                conn.commit(); st.rerun()
-                            if cb.button("🤝 Apostar Empate",key=f"btn_emp_{pid}",use_container_width=True):
-                                conn.execute("INSERT INTO apuestas VALUES(?,?,?,?,?,?,?)",(st.session_state.user,pid,g1,g1,1,0,str(datetime.datetime.now()-timedelta(hours=6))))
-                                conn.commit(); st.rerun()
-
-                
-                        if st.button("✏️ Corregir pronóstico",key=f"btn_corr_{pid}",use_container_width=True):
-                            st.session_state[f"corrigiendo_{pid}"] = True; st.rerun()
-
-            conn.close()
-    
