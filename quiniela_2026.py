@@ -664,6 +664,14 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
 
                 if res_e:
                     ganador_real, penales_real, goles_real = res_e
+                    pen_r = "Si" if penales_real==1 else "No" 
+                    if goles_real==1: 
+                        gol_r = "Si"
+                    else:
+                        if goles_real==0: 
+                          gol_r = "No"
+                        else:
+                          gol_r = ""
                     pts = calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, int(penales_real),int(goles_ap), int(goles_real))
                     resultado = f"{ganador_real}{' (penales)' if penales_real==1 else ''}"
                     pts_txt = {4:"⚽ 4 pts", 3:"🎯 3 pts",2:"🏆 2 pts",1:"🎲 1 pt",0:"❌ 0 pts"}[pts]
@@ -678,8 +686,10 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                     fila["Usuario"] = uname
                 fila["Aposté avanza"] = ganador_ap
                 fila["¿Penales?"] = pen_ap
-                fila["Resultado oficial"] = resultado
                 fila["¿+2.5Goles?"] = gol_ap
+                fila["Resultado oficial"] = resultado
+                fila["Penales"] = pen_r
+                fila["+2.5Goles"] = gol_r
                 fila["Puntos"] = pts_txt
                 fila["Fecha de apuesta"] = fecha
                 filas.append(fila)
