@@ -223,8 +223,6 @@ def inicializar_db():
         c.execute("UPDATE elim_partidos SET num_partido=CAST(partido_id AS INTEGER) WHERE num_partido IS NULL OR num_partido=0")
     except: pass
 
-    try: c.execute("ALTER TABLE elim_resultados ADD COLUMN goles INTEGER DEFAULT 2")
-    except: pass
 
     conn.commit()
     conn.close()
