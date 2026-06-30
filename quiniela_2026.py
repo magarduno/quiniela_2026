@@ -213,16 +213,22 @@ def inicializar_db():
         UNIQUE(usuario, partido_id))''')
     try: c.execute("ALTER TABLE elim_apuestas ADD COLUMN pagado INTEGER DEFAULT 0")
     except: pass
+    try: c.execute("ALTER TABLE elim_apuestas ADD COLUMN goles INTEGER DEFAULT 2")
+    except: pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS elim_resultados (
-        partido_id TEXT PRIMARY KEY, ganador TEXT, penales INTEGER DEFAULT 0)''')
+        partido_id TEXT PRIMARY KEY, ganador TEXT, penales INTEGER DEFAULT 0, goles INTEGER DEFAULT 2)''')
 
     try:
         c.execute("UPDATE elim_partidos SET num_partido=CAST(partido_id AS INTEGER) WHERE num_partido IS NULL OR num_partido=0")
     except: pass
 
+    try: c.execute("ALTER TABLE elim_resultados ADD COLUMN goles INTEGER DEFAULT 2")
+    except: pass
+
     conn.commit()
     conn.close()
+    
 
 def partido_esta_cerrado(conn, partido_id):
     grupo_id = partido_id.split("_")[0]
@@ -381,7 +387,7 @@ def calcular_puntos_grupo(g1, g2, r1, r2):
     if g1==g2 and r1==r2: return 1
     return 0
 
-def calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, penales_real):
+def calcular_puntos_elim(ganador_ap, penales_ap, ganador_real,penales_real,goles_ap,goles_real):
     """
     Reglas de puntuacion eliminatorias:
     - Aciertas ganador, NO marcaste penales NO hubo penales  -> 2 pts
@@ -394,20 +400,26 @@ def calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, penales_real):
     penales_ap   = int(penales_ap)
     penales_real = int(penales_real)
     acerto_ganador = (ganador_ap == ganador_real)
+    if goles_ap == goles_real:
+       acerto_goles = 1
+    else: 
+       acerto_goles= 0
 
-    # Marcaste penales pero NO hubo penales -> 0 pt
+     # Marcaste penales pero NO hubo penales -> 0 pt
     if penales_ap == 1 and penales_real == 0:
-        return 0
-
+        return 0 + acerto_goles 
+ 
     # Marcaste penales Y hubo penales
     if penales_ap == 1 and penales_real == 1:
-        return 3 if acerto_ganador else 2
+        return 3 + acerto_goles if acerto_ganador else 2 + acerto_goles
 
     # No marcaste penales
     # penales_ap == 0
     if acerto_ganador:
-        return 2 if penales_real == 0 else 1   # si hubo penales pero no los marcaste -> 1 pt
-    return 0
+        return 2 + acerto_goles if penales_real == 0 else 1 + acerto_goles   # si hubo penales pero no los marcaste -> 1 pt
+
+   
+    return 0 + acerto_goles
 
 def get_tabla_grupo(grupo_id):
     conn = conectar_db()
@@ -476,7 +488,7 @@ def calcular_ranking_global():
     conn.close()
     # Grupos: Exacto(3pts) | Ganador(2pts) | Empate(1pt)
     # Elim:   Ganador+Penales(3pts) | Ganador sin penales(2pts) | Penales/no hubo(1pt)
-    cols=["Pts","Exacto","Ganador","Empate","Elim G+Pen","Elim Ganador","Elim Pen/No"]
+    cols=["Pts","Exacto","Ganador","Empate","Elim G+Pen","Elim Ganador","Elim Pen/No","Goles2.5"]
     ranking={u:{c:0 for c in cols} for u in df_users['username']}
     for _,ap in df_ap_grupo.iterrows():
         rr=df_reales[df_reales['partido_id']==ap['partido_id']]
@@ -491,11 +503,14 @@ def calcular_ranking_global():
         if not rr.empty and ap['usuario'] in ranking:
             _p_ap   = int(ap['penales'])         if ap['penales']         is not None and str(ap['penales'])         != 'nan' else 0
             _p_real = int(rr.iloc[0]['penales']) if rr.iloc[0]['penales'] is not None and str(rr.iloc[0]['penales']) != 'nan' else 0
-            pts=calcular_puntos_elim(ap['ganador'],_p_ap,rr.iloc[0]['ganador'],_p_real)
+            _g_ap   = int(ap['goles']) 
+            _g_real = int(rr.iloc[0]['goles'])
+            pts=calcular_puntos_elim(ap['ganador'],_p_ap,rr.iloc[0]['ganador'],_p_real,_g_ap,_g_real)
             ranking[ap['usuario']]["Pts"]+=pts
-            if pts==3: ranking[ap['usuario']]["Elim G+Pen"]+=1
-            elif pts==2: ranking[ap['usuario']]["Elim Ganador"]+=1
-            elif pts==1: ranking[ap['usuario']]["Elim Pen/No"]+=1
+            if pts==4: ranking[ap['usuario']]["Elim G+Pen"]+=1
+            elif pts==3: ranking[ap['usuario']]["Elim Ganador"]+=1
+            elif pts==2: ranking[ap['usuario']]["Elim Pen/No"]+=1
+            elif pts==1: ranking[ap['usuario']]["Goles2.5"]+=1
     rows=[{"Usuario":u,**v} for u,v in ranking.items()]
     df=pd.DataFrame(rows)
     if df.empty: return pd.DataFrame(columns=["Usuario"]+cols)
@@ -624,30 +639,31 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                 "SELECT abierto_apuestas FROM elim_partidos WHERE partido_id=?",(pid_e,)).fetchone()
             if es_admin:
                 aps = conn.execute(
-                    "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
+                    "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
                     (pid_e,)).fetchall()
             else:
                 if cerrado and cerrado[0]==0:
                     aps = conn.execute(
-                        "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
+                        "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE partido_id=? ORDER BY fecha DESC",
                         (pid_e,)).fetchall()
                 else:
                     aps = conn.execute(
-                        "SELECT usuario,ganador,penales,fecha FROM elim_apuestas WHERE usuario=? AND partido_id=?",
+                        "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE usuario=? AND partido_id=?",
                         (usuario_filtro, pid_e)).fetchall()
 
             filas = []
             for ap in aps:
-                uname, ganador_ap, penales_ap, fecha = ap
+                uname, ganador_ap, penales_ap, fecha, goles_ap = ap
                 es_yo = (uname == usuario_filtro)
                 pen_ap = "Sí" if penales_ap==1 else "No"
+                gol_ap = "Sí" if goles_ap==1 else "No"
                 fecha = fecha [:16]
 
                 if res_e:
-                    ganador_real, penales_real = res_e
-                    pts = calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, int(penales_real))
+                    ganador_real, penales_real, goles_real = res_e
+                    pts = calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, int(penales_real),int(goles_ap), int(goles_real))
                     resultado = f"{ganador_real}{' (penales)' if penales_real==1 else ''}"
-                    pts_txt = {3:"🎯 3 pts",2:"🏆 2 pts",1:"🎲 1 pt",0:"❌ 0 pts"}[pts]
+                    pts_txt = {4:"⚽ 4 pts", 3:"🎯 3 pts",2:"🏆 2 pts",1:"🎲 1 pt",0:"❌ 0 pts"}[pts]
                 else:
                     resultado = "⏳ Pendiente"
                     pts_txt = "—"
@@ -660,6 +676,7 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                 fila["Aposté avanza"] = ganador_ap
                 fila["¿Penales?"] = pen_ap
                 fila["Resultado oficial"] = resultado
+                fila["¿+2.5Goles?"] = gol_ap
                 fila["Puntos"] = pts_txt
                 fila["Fecha de apuesta"] = fecha
                 filas.append(fila)
@@ -691,9 +708,10 @@ st.markdown("""<div class="reglas-container"><div style="text-align:center">
   <span class="regla-item">🎯 EXACTO: 3 PTS</span>
   <span class="regla-item">🏆 GANADOR: 2 PTS</span>
   <span class="regla-item">🤝 EMPATE: 1 PT</span>
-  <span class="regla-item" style="color:#7c3aed">⚽ 2a F. GANADOR+PENALES: 3 PTS</span>
-  <span class="regla-item" style="color:#7c3aed">⚽ 2a F. GANADOR O EMPATE(PENALES): 2 PTS</span>
-  <span class="regla-item" style="color:#7c3aed">🎲 2a F. GANADOR EN PENALES: 1 PT</span>
+  <span class="regla-item" style="color:#7c3aed">⚽ 2F GAN+PEN+2.5G: 4 PTS</span>
+  <span class="regla-item" style="color:#7c3aed">⚽ 2F GAN O EMP(PEN)+2.5G: 3 PTS</span>
+  <span class="regla-item" style="color:#7c3aed">🎲 2F GAN EN PENALES+2.5G: 2 PT</span>
+  <span class="regla-item" style="color:#7c3aed">🎲 2F SOLO +2.5G: 1 PT</span>
 </div></div>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
@@ -844,10 +862,10 @@ else:
 
                         ambos = bool(eq1 and eq2)
                         ap_e = conn_el.execute(
-                            "SELECT ganador,penales FROM elim_apuestas WHERE usuario=? AND partido_id=?",
+                            "SELECT ganador,penales,goles FROM elim_apuestas WHERE usuario=? AND partido_id=?",
                             (st.session_state.user, mid)).fetchone()
                         res_e = conn_el.execute(
-                            "SELECT ganador,penales FROM elim_resultados WHERE partido_id=?",(mid,)).fetchone()
+                            "SELECT ganador,penales,goles FROM elim_resultados WHERE partido_id=?",(mid,)).fetchone()
 
                         if res_e:
                             border,bg = "#16a34a","#f0fdf4"
@@ -860,12 +878,22 @@ else:
 
                         res_html = ""
                         if res_e:
-                            pen_icon = " 🥅 P" if res_e[1] else ""
-                            res_html = f'<div style="font-size:.8rem;color:#16a34a;font-weight:700;margin-top:4px">✅ {res_e[0]}{pen_icon}</div>'
+                            pen_icon = " 🥅 P  " if res_e[1] else ""
+                            if res_e[2] == 1:
+                                gol_icon = " - ⚽ +2.5g" 
+                            elif res_e[2] == 0:
+                                gol_icon = " - ⚽ -2.5g"
+                            else: gol_icon = "" 
+                            res_html = f'<div style="font-size:.8rem;color:#16a34a;font-weight:700;margin-top:4px">✅ {res_e[0]}{pen_icon}{gol_icon}</div>'
                         ap_html = ""
                         if ap_e:
-                            pen_icon = " 🥅 P" if ap_e[1] else ""
-                            ap_html = f'<div style="font-size:.80rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}</div>'
+                            pen_icon = " 🥅 P  " if ap_e[1] else ""
+                            if ap_e[2] == 1:
+                                gol_icon = " - ⚽ +2.5g" 
+                            elif ap_e[2] == 0:
+                                gol_icon = " - ⚽ -2.5g"
+                            else: gol_icon = "" 
+                            ap_html = f'<div style="font-size:.80rem;color:#7c3aed;margin-top:4px">Aposté: {ap_e[0]}{pen_icon}{gol_icon}</div>'
 
                         st.markdown(f"""
                             <div style="border:2px solid {border};background:{bg};border-radius:12px;
@@ -885,14 +913,19 @@ else:
                         """, unsafe_allow_html=True)
 
                         if abierto and ambos and not ap_e and not res_e:
-                            pen_sel = st.checkbox("¿Penales?(Empate)", key=f"pen_{mid}")
+                            goles=st.radio("Goles en partido:",[" ⚽ +2.5 goles"," ⚽ -2.5 goles"],key=f"gol_{mid}",horizontal=True)
+                            if "+2.5" in goles: 
+                                goles25 = 1
+                            else:
+                                goles25 = 0  
+                            pen_sel = st.checkbox("EMPATE (Hay Penales)", key=f"pen_{mid}")
                             if st.button(f"✅ {eq1}", key=f"ev1_{mid}", use_container_width=True):
-                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
-                                    (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?,?)",
+                                    (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6)),goles25))
                                 conn_el.commit(); st.rerun()
                             if st.button(f"✅ {eq2}", key=f"ev2_{mid}", use_container_width=True):
-                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?)",
-                                    (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6))))
+                                conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?,?)",
+                                    (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6)),goles25))
                                 conn_el.commit(); st.rerun()
                         
                         elif abierto and ambos:
@@ -955,6 +988,7 @@ else:
                       <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim G+Pen",0)}</td>
                       <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Ganador",0)}</td>
                       <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Pen/No",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Goles 2.5",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Empate",0)}</td>
@@ -969,9 +1003,10 @@ else:
                         <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
                         <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
                         <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:.90rem;letter-spacing:1px">PTS</th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2 G+Pen+g<br><span style="color:#475569">4pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2 Gan+g<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2 G. Pen+g<br><span style="color:#475569">2pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>Solo G<br><span style="color:#475569">1pt</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
@@ -1234,7 +1269,7 @@ else:
                                 conn.execute("UPDATE elim_partidos SET abierto_apuestas=1 WHERE partido_id=?",(mid,))
                                 conn.commit(); st.rerun()
                         elif eq1 and eq2:
-                            c_ab, c_g, c_p, c_sv = st.columns([2,3,2,2])
+                            c_ab, c_g, c_p, c_gol, c_sv = st.columns([2,3,2,2])
                             lbl_ab = "⏸️ Cerrar apuestas" if abierto else "🔓 Abrir apuestas"
                             if c_ab.button(lbl_ab, key=f"ab_{mid}", use_container_width=True):
                                 conn.execute("""INSERT OR IGNORE INTO elim_partidos
@@ -1245,11 +1280,16 @@ else:
                                 conn.commit(); st.rerun()
                             gan_sel = c_g.selectbox("Ganador", ["",eq1,eq2], key=f"gan_{mid}")
                             pen_sel = c_p.checkbox("¿Penales?", key=f"pen_{mid}")
+                            gol_sel = c_p.checkbox("¿+2.5 Goles?", key=f"goles_{mid}")
+                            if gol_sel: 
+                                gol_sel = 1
+                            else:
+                                gol_sel = 0
                             if c_sv.button("Grabar resultado", key=f"gsv_{mid}", use_container_width=True):
                                 if gan_sel:
                                     perdedor = eq2 if gan_sel==eq1 else eq1
-                                    conn.execute("INSERT OR REPLACE INTO elim_resultados VALUES(?,?,?)",
-                                                 (mid,gan_sel,int(pen_sel)))
+                                    conn.execute("INSERT OR REPLACE INTO elim_resultados VALUES(?,?,?,?)",
+                                                 (mid,gan_sel,int(pen_sel),gol_sel))
                                     conn.execute("UPDATE elim_partidos SET abierto_apuestas=0 WHERE partido_id=?",(mid,))
                                     conn.commit()
                                     avanzar_ganador(conn, mid, gan_sel, perdedor)
@@ -1307,6 +1347,7 @@ else:
                       <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim G+Pen",0)}</td>
                       <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Ganador",0)}</td>
                       <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Elim Pen/No",0)}</td>
+                      <td style="text-align:center;color:#7c3aed;font-size:1.0rem">{row.get("Goles 2.5",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Exacto",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Ganador",0)}</td>
                       <td style="text-align:center;color:#3b82f6;font-size:1.0rem">{row.get("Empate",0)}</td>
@@ -1321,9 +1362,10 @@ else:
                         <th style="padding:10px 8px;text-align:center;color:#64748b;font-size:1.0rem;letter-spacing:1px;white-space:nowrap">POS</th>
                         <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:1.0rem;letter-spacing:1px">JUGADOR</th>
                         <th style="padding:10px 8px;text-align:center;color:#3b82f6;font-size:1.0rem;letter-spacing:1px">PTS</th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F G+Pen<br><span style="color:#475569">3pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2F Ganador<br><span style="color:#475569">2pts</span></th>
-                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2F G. Pen<br><span style="color:#475569">1pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2 G+Pen+g<br><span style="color:#475569">4pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">⚽<br>2 Gan+g<br><span style="color:#475569">3pts</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>2 G. Pen+g<br><span style="color:#475569">2pt</span></th>
+                        <th style="padding:10px 6px;text-align:center;color:#7c3aed;font-size:.7rem;white-space:nowrap">🎲<br>Solo G<br><span style="color:#475569">1pt</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🎯<br>Exacto<br><span style="color:#475569">3pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🏆<br>Ganador<br><span style="color:#475569">2pts</span></th>
                         <th style="padding:10px 6px;text-align:center;color:#3b82f6;font-size:.7rem;white-space:nowrap">🤝<br>Empate<br><span style="color:#475569">1pt</span></th>
