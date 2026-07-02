@@ -781,7 +781,7 @@ def render_misapuestas_eliminatorias(conn, usuario_filtro=None):
     st.markdown("#### 📋 MIS APUESTAS")
 
     partidos = conn.execute(
-            "SELECT partido_id,equipo1,equipo2 FROM elim_partidos ORDER BY partido_id")
+            "SELECT partido_id,equipo1,equipo2 FROM elim_partidos ORDER BY COALESCE(num_partido,0),partido_id")
 
     for pid_e,eq1,eq2 in partidos:
         res_e = conn.execute(
