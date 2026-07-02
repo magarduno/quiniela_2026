@@ -708,6 +708,138 @@ def render_auditoria_eliminatorias(conn, usuario_filtro=None):
                     + ("" if cerrado else " — *Se revelan al publicar el resultado*"))
                 st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
                 st.markdown("---")
+                
+def render_misapuestas_grupos(conn, usuario_filtro=None):
+    st.markdown("#### 📋 Apuestas por Grupo")
+
+    grupo_sel = st.selectbox("Ver grupo:", ["Todos"] + list(grupos.keys()),
+                              key=f"map_grupo_{usuario_filtro or 'admin'}")
+    grupos_a_mostrar = list(grupos.keys()) if grupo_sel == "Todos" else [grupo_sel]
+
+    for g_id in grupos_a_mostrar:
+        eqs = grupos[g_id]
+        partidos_idx = [(0,1),(2,3),(0,2),(1,3),(0,3),(1,2)]
+        bloques = []
+
+        for idx,(p1,p2) in enumerate(partidos_idx):
+            pid = f"{g_id}_{idx}"
+            tl, tv = eqs[p1], eqs[p2]
+            cerrado = _partido_cerrado_para_vista(conn, pid)
+            rr = conn.execute(
+                "SELECT r1,r2 FROM resultados_reales WHERE partido_id=?",(pid,)).fetchone()
+
+            aps = conn.execute(
+                    "SELECT usuario,g1,g2,es_empate,fecha FROM apuestas WHERE usuario=? AND partido_id=?",
+                        (usuario_filtro, pid)).fetchall()
+
+            filas = []
+            for ap in aps:
+                uname, g1, g2, es_empate, fecha = ap
+                es_yo = (uname == usuario_filtro)
+                pronostico = f"{g1} - {g2}" + (" (empate)" if es_empate==1 else "")
+                tipo = "🤝 Empate" if es_empate==1 else "🎯 Marcador"
+                fecha = fecha [:16]
+
+                if rr:
+                    r1,r2 = int(rr[0]),int(rr[1])
+                    pts = calcular_puntos_grupo(g1,g2,r1,r2)
+                    resultado = f"{r1} - {r2}"
+                    pts_txt = {3:"🎯 3 pts",2:"🏆 2 pts",1:"🤝 1 pt",0:"❌ 0 pts"}[pts]
+                else:
+                    resultado = "⏳ Pendiente"
+                    pts_txt = "—"
+
+                fila = {"Partido": f"{tl} vs {tv}"}
+                fila["Pronóstico"] = pronostico
+                fila["Tipo"] = tipo
+                fila["Resultado oficial"] = resultado
+                fila["Puntos"] = pts_txt
+                fila["Fecha de apuesta"] = fecha
+                filas.append(fila)
+
+            nombre_partido = f"{tl} vs {tv}"
+            bloques.append((nombre_partido, filas, cerrado))
+
+        tiene_algo = any(f for _,f,_ in bloques)
+        if not tiene_algo and grupo_sel != "Todos":
+            st.info(f"No hay apuestas en el Grupo {g_id}.")
+            continue
+
+        header = f"**Grupo {g_id}**"
+        expanded = (grupo_sel != "Todos")
+
+        with st.expander(header, expanded=expanded):
+            for nombre_partido, filas, cerrado in bloques:
+                if not filas:
+                    continue
+                estado_icon = "🔒" if cerrado else "🔓"
+                st.markdown(f"**{estado_icon} {nombre_partido}**",unsafe_allow_html=False)
+                st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
+                st.markdown("---")
+
+def render_misapuestas_eliminatorias(conn, usuario_filtro=None):
+    st.markdown("#### 📋 MIS APUESTAS")
+
+    partidos = conn.execute(
+            "SELECT partido_id,equipo1,equipo2 FROM elim_partidos ORDER BY partido_id")
+
+    for pid_e,eq1,eq2 in partidos:
+        res_e = conn.execute(
+            "SELECT ganador,penales,goles FROM elim_resultados WHERE partido_id=?",(pid_e,)).fetchone()
+            #cerrado = res_e is not None
+        aps = conn.execute(
+                        "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE usuario=? AND partido_id=?",
+                        (usuario_filtro, pid_e)).fetchall()
+        filas = []
+        for ap in aps:
+            uname, ganador_ap, penales_ap, fecha, goles_ap = ap
+            es_yo = (uname == usuario_filtro)
+            pen_ap = "Sí" if penales_ap==1 else "No"
+            if goles_ap==1: 
+                gol_ap = "Si"
+            else:
+                if goles_ap==0: 
+                        gol_ap = "No"
+                else:
+                        gol_ap = ""
+                fecha = fecha [:16]
+                if res_e:
+                    ganador_real, penales_real, goles_real = res_e
+                    pen_r = "Si" if penales_real==1 else "No" 
+                    if goles_real==1: 
+                        gol_r = "Si"
+                    else:
+                        if goles_real==0: 
+                          gol_r = "No"
+                        else:
+                          gol_r = ""
+                    pts = calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, int(penales_real),int(goles_ap), int(goles_real))
+                    resultado = f"{ganador_real}{' (penales)' if penales_real==1 else ''}"
+                    pts_txt = {4:"⚽ 4 pts", 3:"🎯 3 pts",2:"🏆 2 pts",1:"🎲 1 pt",0:"❌ 0 pts"}[pts]
+                else:
+                    resultado = "⏳ Pendiente"
+                    pts_txt = "—"
+
+            fila = {"Partido": f"{eq1} vs {eq2}"}
+            fila["Quién"] = f"{'👤 Yo' if es_yo else uname}"
+            fila["Usuario"] = uname
+            fila["Aposté avanza"] = ganador_ap
+            fila["¿Penales?"] = pen_ap
+            fila["¿+2.5Goles?"] = gol_ap
+            fila["Resultado oficial"] = resultado
+            fila["Penales"] = pen_r
+            fila["+2.5Goles"] = gol_r
+            fila["Puntos"] = pts_txt
+            fila["Fecha de apuesta"] = fecha
+            filas.append(fila)
+            
+            nombre_partido = f"{eq1} vs {eq2}"
+            if not filas:
+                continue
+            st.markdown(f"**{nombre_partido}**",unsafe_allow_html=False)
+            st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
+            st.markdown("---")
+
 
 
 # ─────────────────────────────────────────────
@@ -829,7 +961,7 @@ else:
     # USUARIO NORMAL
     # ══════════════════════════════════════════
     if st.session_state.user != "ADMIN":
-        tabs=st.tabs(["🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS","📝 GRUPOS","📊 POSICIONES"])
+        tabs=st.tabs(["🏆 ELIMINATORIAS","🌟 RANKING","📋 PRONÓSTICOS","MIS APUESTAS","📝 GRUPOS","📊 POSICIONES"])
 
         # ── GRUPOS ────────────────────────────
         
@@ -1044,6 +1176,16 @@ else:
             conn_ap.close()
             
         with tabs[3]:
+            st.header("📋 Mis Apuestas")
+            conn_ap=conectar_db()
+            tab_mg, tab_me = st.tabs(["⚽ Fase de Grupos","🏆 Eliminatorias"])
+            with tab_mg:
+                render_misapuestas_grupos(conn_ap, usuario_filtro=st.session_state.user)
+            with tab_me:
+               render_misapuestas_eliminatorias(conn_ap, usuario_filtro=st.session_state.user)
+            conn_ap.close()
+            
+        with tabs[4]:
             conn=conectar_db()
             for g_id,eqs in grupos.items():
                 est_g=conn.execute("SELECT estado FROM estados_grupos WHERE grupo_id=?",(g_id,)).fetchone()[0]
@@ -1155,7 +1297,7 @@ else:
             conn.close()
         
         # ── POSICIONES ────────────────────────
-        with tabs[4]:
+        with tabs[5]:
             st.header("Tablas de Posiciones por Grupo")
             g_sel=st.selectbox("Grupo:",list(grupos.keys()))
             st.table(get_tabla_grupo(g_sel))
