@@ -485,7 +485,7 @@ def calcular_ranking_global():
     conn.close()
     # Grupos: Exacto(3pts) | Ganador(2pts) | Empate(1pt)
     # Elim:   Ganador+Penales(3pts) | Ganador sin penales(2pts) | Penales/no hubo(1pt)
-    cols=["Pts","Exacto","Ganador","Empate","Elim G+Pen","Elim Ganador","Elim Pen/No","Goles2.5"]
+    cols=["Pts","Exacto","Ganador","Empate","Elim G+Pen","Elim Ganador","Elim Pen/No","Goles 2.5"]
     ranking={u:{c:0 for c in cols} for u in df_users['username']}
     for _,ap in df_ap_grupo.iterrows():
         rr=df_reales[df_reales['partido_id']==ap['partido_id']]
@@ -507,7 +507,7 @@ def calcular_ranking_global():
             if pts==4: ranking[ap['usuario']]["Elim G+Pen"]+=1
             elif pts==3: ranking[ap['usuario']]["Elim Ganador"]+=1
             elif pts==2: ranking[ap['usuario']]["Elim Pen/No"]+=1
-            elif pts==1: ranking[ap['usuario']]["Goles2.5"]+=1
+            elif pts==1: ranking[ap['usuario']]["Goles 2.5"]+=1
     rows=[{"Usuario":u,**v} for u,v in ranking.items()]
     df=pd.DataFrame(rows)
     if df.empty: return pd.DataFrame(columns=["Usuario"]+cols)
