@@ -788,7 +788,7 @@ def render_misapuestas_eliminatorias(conn, usuario_filtro=None):
             "SELECT ganador,penales,goles FROM elim_resultados WHERE partido_id=?",(pid_e,)).fetchone()
             #cerrado = res_e is not None
         aps = conn.execute(
-                        "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE usuario=? AND partido_id=?",
+                        "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE usuario=?",
                         (usuario_filtro, pid_e)).fetchall()
         filas = []
         for ap in aps:
