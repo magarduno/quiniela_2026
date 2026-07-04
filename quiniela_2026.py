@@ -1120,8 +1120,7 @@ else:
             tab_mg, tab_me = st.tabs(["⚽ Fase de Grupos","🏆 Eliminatorias"])
             with tab_mg:
                 render_misapuestas_grupos(conn_ap, usuario_filtro=st.session_state.user)
-            with tab_me:
-               render_auditoria_eliminatorias(conn_ap, usuario_filtro=st.session_state.user)
+              
             conn_ap.close()
             
         with tabs[4]:
