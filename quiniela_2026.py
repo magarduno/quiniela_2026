@@ -777,68 +777,7 @@ def render_misapuestas_grupos(conn, usuario_filtro=None):
                 st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
                 st.markdown("---")
 
-def render_misapuestas_eliminatorias(conn, usuario_filtro=None):
-    st.markdown("#### 📋 MIS APUESTAS")
 
-    partidos = conn.execute(
-            "SELECT partido_id,equipo1,equipo2 FROM elim_partidos ORDER BY COALESCE(num_partido,0),partido_id")
-
-    for pid_e,eq1,eq2 in partidos:
-        res_e = conn.execute(
-            "SELECT ganador,penales,goles FROM elim_resultados WHERE partido_id=?",(pid_e,)).fetchone()
-            #cerrado = res_e is not None
-        aps = conn.execute(
-                        "SELECT usuario,ganador,penales,fecha,goles FROM elim_apuestas WHERE usuario=? AND partido_id=?",
-                        (usuario_filtro, pid_e)).fetchall()
-        filas = []
-        for ap in aps:
-            uname, ganador_ap, penales_ap, fecha, goles_ap = ap
-            es_yo = (uname == usuario_filtro)
-            pen_ap = "Sí" if penales_ap==1 else "No"
-            if goles_ap==1: 
-                gol_ap = "Si"
-            else:
-                if goles_ap==0: 
-                        gol_ap = "No"
-                else:
-                        gol_ap = ""
-                fecha = fecha [:16]
-                if res_e:
-                    ganador_real, penales_real, goles_real = res_e
-                    pen_r = "Si" if penales_real==1 else "No" 
-                    if goles_real==1: 
-                        gol_r = "Si"
-                    else:
-                        if goles_real==0: 
-                          gol_r = "No"
-                        else:
-                          gol_r = ""
-                    pts = calcular_puntos_elim(ganador_ap, penales_ap, ganador_real, int(penales_real),int(goles_ap), int(goles_real))
-                    resultado = f"{ganador_real}{' (penales)' if penales_real==1 else ''}"
-                    pts_txt = {4:"⚽ 4 pts", 3:"🎯 3 pts",2:"🏆 2 pts",1:"🎲 1 pt",0:"❌ 0 pts"}[pts]
-                else:
-                    resultado = "⏳ Pendiente"
-                    pts_txt = "—"
-
-            fila = {"Partido": f"{eq1} vs {eq2}"}
-            fila["Quién"] = f"{'👤 Yo' if es_yo else uname}"
-            fila["Usuario"] = uname
-            fila["Aposté avanza"] = ganador_ap
-            fila["¿Penales?"] = pen_ap
-            fila["¿+2.5Goles?"] = gol_ap
-            fila["Resultado oficial"] = resultado
-            fila["Penales"] = pen_r
-            fila["+2.5Goles"] = gol_r
-            fila["Puntos"] = pts_txt
-            fila["Fecha de apuesta"] = fecha
-            filas.append(fila)
-            
-            nombre_partido = f"{eq1} vs {eq2}"
-            if not filas:
-                continue
-            st.markdown(f"**{nombre_partido}**",unsafe_allow_html=False)
-            st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
-            st.markdown("---")
 
 
 
