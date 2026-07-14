@@ -1005,11 +1005,11 @@ else:
                             pen_sel = st.checkbox("EMPATE (Hay Penales)", key=f"pen_{mid}")
                             if st.button(f"✅ {eq1}", key=f"ev1_{mid}", use_container_width=True):
                                 conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?,?)",
-                                    (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6)),goles25))
+                                    (st.session_state.user,mid,eq1,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=10)),goles25))
                                 conn_el.commit(); st.rerun()
                             if st.button(f"✅ {eq2}", key=f"ev2_{mid}", use_container_width=True):
                                 conn_el.execute("INSERT INTO elim_apuestas VALUES(?,?,?,?,?,?,?)",
-                                    (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=6)),goles25))
+                                    (st.session_state.user,mid,eq2,int(pen_sel),0,str(datetime.datetime.now()-timedelta(hours=10)),goles25))
                                 conn_el.commit(); st.rerun()
                         
                         elif abierto and ambos:
